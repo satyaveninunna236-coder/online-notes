@@ -1,12 +1,17 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useEffect } from 'react';
+import 'regenerator-runtime/runtime'; // Required for react-speech-recognition
+import SpeechRecognition, { useSpeechRecognition } from 'react-speech-recognition';
 import { Mic, Square, X, Check, Copy, RotateCcw, Loader2 } from 'lucide-react';
 
 const AudioRecorder = ({ isOpen, onClose, onInsert, darkMode }) => {
-  const [isRecording, setIsRecording] = useState(false);
-  const [transcript, setTranscript] = useState('');
-  const [interimTranscript, setInterimTranscript] = useState('');
-  const [error, setError] = useState(null);
-  const recognitionRef = useRef(null);
+  const {
+    transcript,
+    interimTranscript,
+    listening,
+    resetTranscript,
+    browserSupportsSpeechRecognition,
+    isMicrophoneAvailable
+  } = useSpeechRecognition();
 
   useEffect(() => {
     if (isOpen) {
@@ -14,94 +19,33 @@ const AudioRecorder = ({ isOpen, onClose, onInsert, darkMode }) => {
     } else {
       stopRecording();
     }
+    // Cleanup on unmount
     return () => {
-      stopRecording();
+      SpeechRecognition.stopListening();
     };
   }, [isOpen]);
 
   const startRecording = () => {
-    setError(null);
-    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-      setError('Speech recognition is not supported in this browser.');
+    if (!browserSupportsSpeechRecognition) {
       return;
     }
-
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    recognitionRef.current = new SpeechRecognition();
-    recognitionRef.current.continuous = true;
-    recognitionRef.current.interimResults = true;
-    recognitionRef.current.lang = 'en-US';
-
-    recognitionRef.current.onstart = () => {
-      setIsRecording(true);
-    };
-
-    recognitionRef.current.onresult = (event) => {
-      let finalTranscript = '';
-      let currentInterim = '';
-
-      for (let i = event.resultIndex; i < event.results.length; ++i) {
-        if (event.results[i].isFinal) {
-          finalTranscript += event.results[i][0].transcript + ' ';
-        } else {
-          currentInterim += event.results[i][0].transcript;
-        }
-      }
-
-      if (finalTranscript) {
-        setTranscript((prev) => prev + finalTranscript);
-      }
-      setInterimTranscript(currentInterim);
-    };
-
-    recognitionRef.current.onerror = (event) => {
-      console.error('Speech recognition error', event.error);
-      if (event.error === 'not-allowed') {
-        setError('Microphone access denied. Please allow microphone access.');
-        setIsRecording(false);
-      } else if (event.error === 'no-speech') {
-        // Ignore no-speech errors usually, or handle gracefully
-      } else {
-        setError(`Error: ${event.error}`);
-        setIsRecording(false);
-      }
-    };
-
-    recognitionRef.current.onend = () => {
-      // If we didn't manually stop (isRecording is true), restart (for continuous listening if it stops automatically)
-      // However, often users want it to stop. Let's just update state.
-      if (isRecording) {
-        // recognitionRef.current.start(); // Uncomment to force continuous
-        setIsRecording(false);
-      }
-    };
-
-    try {
-      recognitionRef.current.start();
-    } catch (e) {
-      console.error(e);
-      setError('Could not start recording.');
-    }
+    // continuous: true prevents it from stopping when the user pauses
+    SpeechRecognition.startListening({ continuous: true, language: 'en-US' });
   };
 
   const stopRecording = () => {
-    if (recognitionRef.current) {
-      recognitionRef.current.stop();
-      recognitionRef.current = null;
-    }
-    setIsRecording(false);
+    SpeechRecognition.stopListening();
   };
 
   const handleClose = () => {
     stopRecording();
-    setTranscript('');
-    setInterimTranscript('');
+    resetTranscript();
     onClose();
   };
 
   const handleInsert = () => {
-    // Combine final and interim if any
-    const fullText = (transcript + interimTranscript).trim();
+    // combine if there is interim but mostly react-speech-recognition handles transcript
+    const fullText = (transcript + (interimTranscript ? ' ' + interimTranscript : '')).trim();
     if (fullText) {
       onInsert(fullText);
     }
@@ -109,15 +53,12 @@ const AudioRecorder = ({ isOpen, onClose, onInsert, darkMode }) => {
   };
 
   const handleCopy = () => {
-    const fullText = (transcript + interimTranscript).trim();
+    const fullText = (transcript + (interimTranscript ? ' ' + interimTranscript : '')).trim();
     navigator.clipboard.writeText(fullText);
   };
 
   const handleClear = () => {
-    setTranscript('');
-    setInterimTranscript('');
-    // If recording, restart to clear internal buffer if needed, 
-    // but typically just clearing state is fine.
+    resetTranscript();
   };
 
   if (!isOpen) return null;
@@ -134,12 +75,12 @@ const AudioRecorder = ({ isOpen, onClose, onInsert, darkMode }) => {
         <div className={`flex items-center justify-between px-6 py-4 border-b ${darkMode ? 'border-gray-800' : 'border-gray-100'
           }`}>
           <div className="flex items-center gap-2">
-            <div className={`p-2 rounded-full ${isRecording ? 'bg-red-500/10 text-red-500 animate-pulse' : 'bg-gray-100 text-gray-500'
+            <div className={`p-2 rounded-full ${listening ? 'bg-red-500/10 text-red-500 animate-pulse' : 'bg-gray-100 text-gray-500'
               }`}>
               <Mic size={20} />
             </div>
             <h3 className="font-semibold text-lg">
-              {isRecording ? 'Listening...' : 'Microphone Paused'}
+              {listening ? 'Listening...' : 'Microphone Paused'}
             </h3>
           </div>
           <button
@@ -155,7 +96,7 @@ const AudioRecorder = ({ isOpen, onClose, onInsert, darkMode }) => {
         <div className="flex-1 p-6 flex flex-col min-h-[300px]">
 
           {/* Waveform Visualizer (Simulated) */}
-          {isRecording && (
+          {listening && (
             <div className="flex items-center justify-center gap-1 h-12 mb-6">
               {[...Array(12)].map((_, i) => (
                 <div
@@ -179,12 +120,14 @@ const AudioRecorder = ({ isOpen, onClose, onInsert, darkMode }) => {
             {transcript || interimTranscript ? (
               <p className="text-lg leading-relaxed whitespace-pre-wrap">
                 {transcript}
-                <span className="text-blue-500 opacity-80">{interimTranscript}</span>
+                <span className="text-blue-500 opacity-80">{interimTranscript ? ' ' + interimTranscript : ''}</span>
               </p>
             ) : (
               <div className="h-full flex flex-col items-center justify-center text-center opacity-50">
-                {error ? (
-                  <p className="text-red-500">{error}</p>
+                {!browserSupportsSpeechRecognition ? (
+                  <p className="text-red-500">Speech recognition is not supported in your browser.</p>
+                ) : isMicrophoneAvailable === false ? (
+                  <p className="text-red-500">Microphone access denied. Please allow microphone access.</p>
                 ) : (
                   <p>Start speaking to transcribe...</p>
                 )}
@@ -215,13 +158,14 @@ const AudioRecorder = ({ isOpen, onClose, onInsert, darkMode }) => {
 
             <div className="flex gap-3">
               <button
-                onClick={isRecording ? stopRecording : startRecording}
-                className={`px-6 py-3 rounded-xl font-medium flex items-center gap-2 transition-all active:scale-95 ${isRecording
+                onClick={listening ? stopRecording : startRecording}
+                disabled={!browserSupportsSpeechRecognition}
+                className={`px-6 py-3 rounded-xl font-medium flex items-center gap-2 transition-all active:scale-95 ${listening
                   ? 'bg-red-500/10 text-red-500 hover:bg-red-500/20'
                   : darkMode ? 'bg-gray-800 text-gray-200 hover:bg-gray-700' : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
-                  }`}
+                  } disabled:opacity-50 disabled:cursor-not-allowed`}
               >
-                {isRecording ? (
+                {listening ? (
                   <>
                     <Square size={18} className="fill-current" />
                     Stop

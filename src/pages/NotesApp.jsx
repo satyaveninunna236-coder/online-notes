@@ -3,6 +3,7 @@ import Sidebar from '../components/notes/Sidebar';
 import FormattingToolbar from '../components/notes/FormattingToolbar';
 import ImagesGrid from '../components/notes/ImagesGrid';
 import TextEditor from '../components/notes/TextEditor';
+import CommandPalette from '../components/CommandPalette';
 import { Lock, Unlock, ShieldOff, X } from 'lucide-react';
 import {
   AlertDialog,
@@ -40,6 +41,7 @@ const AppleNotes = () => {
   const [sidebarWidth, setSidebarWidth] = useState(280);
   const [isResizing, setIsResizing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   // Global formating state removed - moved to individual notes
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [toast, setToast] = useState({ visible: false, message: '' });
@@ -213,9 +215,9 @@ const AppleNotes = () => {
     ));
   };
 
-  const handleSelectionChange = () => {
-    if (contentRef.current) {
-      setCursorPosition(contentRef.current.selectionStart);
+  const handleSelectionChange = (absolutePosition) => {
+    if (typeof absolutePosition === 'number') {
+      setCursorPosition(absolutePosition);
     }
   };
 
@@ -297,7 +299,7 @@ const AppleNotes = () => {
     const handleKeyboard = (e) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault();
-        searchInputRef.current?.focus();
+        setIsCommandPaletteOpen((prev) => !prev);
       }
 
       if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
@@ -544,6 +546,7 @@ const AppleNotes = () => {
                     setIsFullscreen={setIsFullscreen}
                     updateNoteFormatting={updateNoteFormatting} // Pass formatting updater
                     updateNoteContent={updateNoteContent}
+                    cursorPosition={cursorPosition}
                   />
 
                   <div className="flex-1 overflow-y-auto">
@@ -729,6 +732,15 @@ const AppleNotes = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Command Palette */}
+      <CommandPalette 
+        isOpen={isCommandPaletteOpen} 
+        onClose={() => setIsCommandPaletteOpen(false)} 
+        darkMode={darkMode}
+        notes={notes}
+        onSelectNote={setActiveNote}
+      />
     </div>
   );
 };

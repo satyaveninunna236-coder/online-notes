@@ -25,9 +25,12 @@ const FormattingToolbar = ({
   onDropdownStateChange,
   isFullscreen,
   setIsFullscreen,
-  updateNoteContent
+  updateNoteFormatting,
+  updateNoteContent,
+  cursorPosition
 }) => {
   const [isAudioRecorderOpen, setIsAudioRecorderOpen] = useState(false);
+  const [isColorPickerOpen, setIsColorPickerOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [currentMatchIndex, setCurrentMatchIndex] = useState(0);
@@ -35,7 +38,20 @@ const FormattingToolbar = ({
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const settingsRef = useRef(null);
   const mobileSettingsRef = useRef(null);
+  const colorPickerRef = useRef(null);
   const [, setUpdateTrigger] = useState(0); // For forcing re-renders to update time
+  
+  const PRESET_COLORS = [
+    { name: 'Default', value: darkMode ? '#ffffff' : '#000000' },
+    { name: 'Red', value: '#ef4444' },
+    { name: 'Orange', value: '#f97316' },
+    { name: 'Yellow', value: '#eab308' },
+    { name: 'Green', value: '#22c55e' },
+    { name: 'Blue', value: '#3b82f6' },
+    { name: 'Purple', value: '#a855f7' },
+    { name: 'Pink', value: '#ec4899' },
+    { name: 'Gray', value: '#6b7280' },
+  ];
 
   // Update the time display every minute
   useEffect(() => {
@@ -156,22 +172,17 @@ const FormattingToolbar = ({
   const handleInsertText = (text) => {
     if (!contentRef.current || !updateNoteContent) return;
 
-    const textarea = contentRef.current;
-    const start = textarea.selectionStart;
-    const end = textarea.selectionEnd;
-    const currentText = currentNote.content;
+    const currentText = currentNote.content || '';
+    
+    // Use the absolute cursorPosition tracked from TextEditor
+    const start = cursorPosition || 0;
+    const end = cursorPosition || 0;
 
-    // Insert text at cursor position
-    const textToInsert = (start > 0 && currentText[start - 1] !== ' ' ? ' ' : '') + text; // Add leading space if needed
+    // Insert text at absolute cursor position
+    const textToInsert = (start > 0 && currentText[start - 1] !== ' ' && currentText[start - 1] !== '\n' ? ' ' : '') + text; // Add leading space if needed
     const newText = currentText.substring(0, start) + textToInsert + currentText.substring(end);
 
     updateNoteContent(newText);
-
-    // Focus back on textarea after a short delay to allow render
-    setTimeout(() => {
-      textarea.focus();
-      textarea.setSelectionRange(start + textToInsert.length, start + textToInsert.length);
-    }, 50);
   };
 
 
@@ -213,6 +224,9 @@ const FormattingToolbar = ({
       if (settingsRef.current && !settingsRef.current.contains(e.target) &&
         mobileSettingsRef.current && !mobileSettingsRef.current.contains(e.target)) {
         setIsSettingsOpen(false);
+      }
+      if (colorPickerRef.current && !colorPickerRef.current.contains(e.target)) {
+        setIsColorPickerOpen(false);
       }
     };
 
@@ -427,7 +441,7 @@ const FormattingToolbar = ({
 
 
           <div
-            className={`flex items-center justify-start gap-2 px-3 py-2 border-t flex-wrap md:flex-nowrap rounded-2xl mx-2 mb-2 overflow-x-auto shadow-sm ${darkMode ? 'bg-[#111111] border-gray-700' : 'bg-gray-200 border-gray-200'
+            className={`flex items-center justify-start gap-2 px-3 py-2 border-t flex-wrap rounded-2xl mx-2 mb-2 shadow-sm ${darkMode ? 'bg-[#111111] border-gray-700' : 'bg-gray-200 border-gray-200'
               }`}
           >
             {/* Text Formatting Group */}
@@ -525,26 +539,51 @@ const FormattingToolbar = ({
             </div>
 
             {/* Color Picker */}
-            <div className="relative md:shrink-0">
+            <div className="relative md:shrink-0" ref={colorPickerRef}>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <div className="w-8 h-8 relative cursor-pointer">
-                    <input
-                      type="color"
-                      value={globalTextColor}
-                      onChange={(e) => setGlobalTextColor(e.target.value)}
-                      className="w-8 h-8 absolute inset-0 opacity-0 cursor-pointer z-10"
-                    />
+                  <button
+                    onClick={() => setIsColorPickerOpen(!isColorPickerOpen)}
+                    className={`w-9 h-9 flex items-center justify-center rounded-2xl transition-all duration-150 active:scale-95 ${
+                      isColorPickerOpen
+                        ? darkMode ? 'bg-gray-700' : 'bg-gray-200'
+                        : darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-200'
+                    }`}
+                  >
                     <div
-                      className="w-8 h-8 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm"
+                      className="w-5 h-5 rounded-full border border-gray-300 dark:border-gray-500 shadow-sm transition-transform hover:scale-110"
                       style={{ backgroundColor: globalTextColor }}
                     />
-                  </div>
+                  </button>
                 </TooltipTrigger>
                 <TooltipContent>
                   <p>Text Color</p>
                 </TooltipContent>
               </Tooltip>
+
+              {isColorPickerOpen && (
+                <div className={`absolute left-0 md:left-auto md:right-0 mt-2 p-2 w-48 grid grid-cols-5 gap-2 rounded-xl shadow-xl border z-50 animate-fade-in ${darkMode
+                  ? 'bg-[#111111] border-gray-700'
+                  : 'bg-white border-gray-200'
+                  }`}>
+                  {PRESET_COLORS.map((color, index) => (
+                    <button
+                      key={index}
+                      onClick={() => {
+                        setGlobalTextColor(color.value);
+                        setIsColorPickerOpen(false);
+                      }}
+                      title={color.name}
+                      className={`w-6 h-6 rounded-full border transition-all duration-150 hover:scale-110 active:scale-95 ${
+                        globalTextColor === color.value 
+                          ? (darkMode ? 'border-white ring-2 ring-blue-500' : 'border-gray-900 ring-2 ring-blue-400') 
+                          : (darkMode ? 'border-gray-600' : 'border-gray-300')
+                      }`}
+                      style={{ backgroundColor: color.value }}
+                    />
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Audio Recorder Button */}

@@ -13,6 +13,7 @@ const TextEditor = ({
   globalIsItalic,
   globalIsUnderline
 }) => {
+  const titleRef = useRef(null);
   const bodyRef = useRef(null);
 
   // Derive title and body from currentNote.content directly
@@ -51,8 +52,21 @@ const TextEditor = ({
     }
   };
 
+  const handleTitleSelection = () => {
+    if (titleRef.current && handleSelectionChange) {
+      handleSelectionChange(titleRef.current.selectionStart);
+    }
+  };
+
+  const handleBodySelection = () => {
+    if (bodyRef.current && handleSelectionChange) {
+      // The absolute index is the title length + 1 (for the newline character) + body selection start
+      handleSelectionChange(title.length + 1 + bodyRef.current.selectionStart);
+    }
+  };
+
   // Sync contentRef to bodyRef for external access (Toolbar, Audio, Search)
-  // This allows the "Insert Text" and "Search" features to work on the BODY content.
+  // This allows the "Search" feature to focus the BODY content.
   useEffect(() => {
     if (contentRef) {
       contentRef.current = bodyRef.current;
@@ -67,20 +81,22 @@ const TextEditor = ({
     <div className="flex flex-col w-full h-full gap-2">
       {/* Title Input - Designated First Line */}
       <input
+        ref={titleRef}
         type="text"
         value={title}
         onChange={handleTitleChange}
         onKeyDown={handleTitleKeyDown}
+        onSelect={handleTitleSelection}
+        onKeyUp={handleTitleSelection}
+        onClick={handleTitleSelection}
         placeholder="New Note"
         className={`w-full bg-transparent px-4 py-2 font-bold outline-none transition-colors duration-200 border-none ${darkMode
-            ? 'text-gray-100 placeholder-gray-600'
-            : 'text-gray-900 placeholder-gray-300'
+          ? 'text-gray-100 placeholder-gray-600'
+          : 'text-gray-900 placeholder-gray-300'
           }`}
         style={{
-          color: globalTextColor,
           fontSize: `${titleFontSize}px`,
-          // Title typically doesn't take italic/underline from global settings, keeps it clean.
-          // But we could add it if desired. Let's keep it clean as a "Heading".
+          // Title keeps its default theme color — color picker only affects the body content.
         }}
       />
 
@@ -89,12 +105,14 @@ const TextEditor = ({
         ref={bodyRef}
         value={body}
         onChange={handleBodyChange}
-        onSelect={handleSelectionChange}
+        onSelect={handleBodySelection}
+        onKeyUp={handleBodySelection}
+        onClick={handleBodySelection}
         onPaste={handlePaste}
         placeholder="Start typing..."
         className={`w-full flex-1 resize-none outline-none px-4 py-3 rounded-xl transition-colors duration-200 leading-relaxed tracking-wide ${darkMode
-            ? 'bg-[#0f0f0f] text-gray-200 placeholder-gray-500 focus:bg-[#111111]'
-            : 'bg-[#fafafa] text-gray-800 placeholder-gray-400 focus:bg-white'
+          ? 'bg-[#0f0f0f] text-gray-200 placeholder-gray-500 focus:bg-[#111111]'
+          : 'bg-[#fafafa] text-gray-800 placeholder-gray-400 focus:bg-white'
           }`}
         style={{
           color: globalTextColor,

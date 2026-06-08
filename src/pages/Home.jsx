@@ -79,15 +79,18 @@ function Home() {
   }, [navigate]);
 
 return (
-    <div className={`min-h-screen overflow-hidden relative transition-colors duration-300 flex flex-col pt-6 sm:pt-8 md:pt-0 ${
+    <div className={`min-h-screen overflow-hidden relative transition-colors duration-300 flex flex-col justify-center ${
       darkMode 
         ? 'bg-gradient-to-br from-[#0B0F19] via-[#0E1628] to-[#0B0F19] text-slate-100' 
         : 'bg-gradient-to-br from-gray-50 via-white to-blue-100 text-gray-900'
     }`}>
       <style>{animationStyles}</style>
+
+      {/* Background grid for all screens */}
+      <div className="absolute inset-0 pointer-events-none tech-grid opacity-30 md:opacity-50 mask-image-gradient z-0"></div>
       
       {/* Navbar */}
-      <header className="flex items-center justify-between px-4 sm:px-6 md:px-16 py-4 sm:py-6 relative z-20">
+      {/* <header className="flex items-center justify-between px-4 sm:px-6 md:px-16 py-4 sm:py-6 relative z-20">
         <div className="flex items-center gap-3">
          
           <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-600 to-cyan-500 text-white flex items-center justify-center font-extrabold text-lg shadow-md shadow-blue-900/20">
@@ -99,14 +102,14 @@ return (
         </div>
 
 
-      </header>
+      </header> */}
 
       {/* Hero Section */}
-      <main className="flex flex-col-reverse md:flex-row items-center justify-between
+      <main className="flex-1 flex flex-col-reverse md:flex-row items-center justify-center md:justify-between
 px-4 sm:px-6 md:px-16
 py-10 sm:py-12 md:py-20
 gap-12 md:gap-16
-relative z-20">
+relative z-20 w-full max-w-7xl mx-auto">
         
         {/* Left Content */}
         <div className="max-w-xl text-center md:text-left  max-md:mt-18 mb-5 ">
@@ -116,12 +119,12 @@ relative z-20">
               : 'text-blue-700 bg-blue-50 border-blue-200'
           }`}>
             <span className="w-2 h-2 bg-blue-600 rounded animate-pulse"></span>
-            Version · 2.0
+            Version · 3.0
           </div>
           <h1 className={`text-4xl md:text-6xl font-extrabold leading-tight mb-6 tracking-tight ${
             darkMode ? 'text-white' : 'text-gray-900'
           }`}>
-            Belive Notes<br />
+            Scribyx Notes<br />
             <span className={`text-transparent bg-clip-text ${
               darkMode
                 ? 'bg-gradient-to-r from-blue-400 to-cyan-400'
@@ -156,8 +159,6 @@ relative z-20">
         <div className="relative w-full max-w-lg h-[450px] hidden md:flex items-center justify-center perspective-container">
           
           {/* --- TECH BACKGROUND ELEMENTS --- */}
-          {/* Isometric Grid Floor */}
-          <div className="absolute inset-0 pointer-events-none tech-grid opacity-50 mask-image-gradient"></div>
           
           {/* Floating Geometric Accents instead of blobs */}
           <div className="geo-accent w-32 h-32 top-10 -right-10 rotate-12 animate-float-delayed opacity-60"></div>

@@ -119,7 +119,7 @@ relative z-20 w-full max-w-7xl mx-auto">
               : 'text-blue-700 bg-blue-50 border-blue-200'
           }`}>
             <span className="w-2 h-2 bg-blue-600 rounded animate-pulse"></span>
-            Version · 3.0
+            Version · 4.0
           </div>
           <h1 className={`text-4xl md:text-6xl font-extrabold leading-tight mb-6 tracking-tight ${
             darkMode ? 'text-white' : 'text-gray-900'
@@ -156,7 +156,7 @@ relative z-20 w-full max-w-7xl mx-auto">
         </div>
 
         {/* Right Animation (Tech/Masculine Floating UI) */}
-        <div className="relative w-full max-w-lg h-[450px] hidden md:flex items-center justify-center perspective-container">
+        <div className="relative w-full max-w-lg h-[450px] hidden md:flex items-center justify-center perspective-container md:translate-x-4 lg:translate-x-20">
           
           {/* --- TECH BACKGROUND ELEMENTS --- */}
           

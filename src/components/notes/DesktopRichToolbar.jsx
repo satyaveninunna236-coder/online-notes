@@ -83,8 +83,8 @@ function ToolbarBtn({
                 ? 'bg-blue-600 text-white'
                 : 'bg-blue-500 text-white'
               : darkMode
-                ? 'hover:bg-gray-700 text-gray-400'
-                : 'hover:bg-gray-200 text-gray-600'
+                ? 'hover:bg-white-700 text-white-400'
+                : 'hover:bg-white-200 text-white-600'
           } ${className}`}
         >
           {children}
@@ -97,12 +97,12 @@ function ToolbarBtn({
   );
 }
 
-function Group({ darkMode, children }) {
+function Group({ darkMode, children, className = '' }) {
   return (
     <div
       className={`flex items-center gap-1 p-1.5 rounded-xl shadow-inner ${
         darkMode ? 'bg-gray-800/60' : 'bg-white'
-      }`}
+      } ${className}`}
     >
       {children}
     </div>
@@ -120,7 +120,7 @@ function Separator({ darkMode }) {
   );
 }
 
-const DesktopRichToolbar = ({ editor, darkMode }) => {
+const DesktopRichToolbar = ({ editor, darkMode, rightSlot }) => {
   const [, setTick] = useState(0);
   const [linkOpen, setLinkOpen] = useState(false);
   const [linkUrl, setLinkUrl] = useState('');
@@ -676,15 +676,8 @@ const DesktopRichToolbar = ({ editor, darkMode }) => {
           </PopoverContent>
         </Popover>
 
-        {isLinkActive && (
-          <ToolbarBtn
-            label="Remove link"
-            darkMode={darkMode}
-            onClick={removeLink}
-          >
-            <Unlink size={16} />
-          </ToolbarBtn>
-        )}
+        {/* Mic + Settings — injected from parent, part of same flex row Group */}
+        {rightSlot}
       </Group>
     </div>
   );

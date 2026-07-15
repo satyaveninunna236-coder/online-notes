@@ -19,8 +19,6 @@ import {
 
 const AppleNotes = () => {
   // Add cursor position state
-  const [cursorPosition, setCursorPosition] = useState(0);
-  // Update note state structure
   const [notes, setNotes] = useState([
     {
       id: 1,
@@ -47,8 +45,11 @@ const AppleNotes = () => {
   const [toast, setToast] = useState({ visible: false, message: '' });
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const contentRef = useRef(null);
+  const editorRef = useRef(null);
   const searchInputRef = useRef(null);
   const [deleteConfirmation, setDeleteConfirmation] = useState({ open: false, noteId: null });
+  const [editor, setEditor] = useState(null);
+  const [hydrated, setHydrated] = useState(false);
 
   const showToast = useCallback((message) => {
     setToast({ visible: true, message });
@@ -98,6 +99,7 @@ const AppleNotes = () => {
         setActiveNote(parseInt(storedActiveNote));
       }
     }
+    setHydrated(true);
   }, []);
 
   // Save notes to localStorage whenever they change
@@ -189,12 +191,14 @@ const AppleNotes = () => {
   }, [notes.length, showToast]);
 
   const updateNoteContent = (content) => {
+    const firstLine = (content || '').split('\n')[0] || '';
+    const plainTitle = firstLine.replace(/<[^>]+>/g, '').substring(0, 30);
     setNotes(notes.map(n =>
       n.id === activeNote
         ? {
           ...n,
           content,
-          title: content.split('\n')[0].substring(0, 30) || 'New Note',
+          title: plainTitle || 'New Note',
           timestamp: new Date(), // For backward compatibility
           lastEditedAt: new Date(), // Mark as edited
           images: n.images || []
@@ -213,12 +217,6 @@ const AppleNotes = () => {
         }
         : n
     ));
-  };
-
-  const handleSelectionChange = (absolutePosition) => {
-    if (typeof absolutePosition === 'number') {
-      setCursorPosition(absolutePosition);
-    }
   };
 
   const handlePaste = async (e) => {
@@ -525,18 +523,9 @@ const AppleNotes = () => {
                   <FormattingToolbar
                     currentNote={currentNote}
                     setIsMobileSidebarOpen={setIsMobileSidebarOpen}
-                    globalIsBold={currentNote.isBold || false}
-                    setGlobalIsBold={(val) => updateNoteFormatting({ isBold: val })}
-                    globalIsItalic={currentNote.isItalic || false}
-                    setGlobalIsItalic={(val) => updateNoteFormatting({ isItalic: val })}
-                    globalIsUnderline={currentNote.isUnderline || false}
-                    setGlobalIsUnderline={(val) => updateNoteFormatting({ isUnderline: val })}
-                    globalFontSize={currentNote.fontSize || 16}
-                    handleFontSizeChange={(inc) => updateNoteFormatting({ fontSize: Math.max(12, Math.min(72, (currentNote.fontSize || 16) + inc)) })}
-                    globalTextColor={currentNote.textColor || (darkMode ? '#ffffff' : '#000000')}
-                    setGlobalTextColor={(val) => updateNoteFormatting({ textColor: val })}
                     darkMode={darkMode}
                     contentRef={contentRef}
+                    editor={editor}
                     onSetPassword={handleSetPassword}
                     onLockNote={handleLockNote}
                     onRemovePassword={handleRemovePassword}
@@ -544,9 +533,6 @@ const AppleNotes = () => {
                     onDropdownStateChange={setIsDropdownOpen}
                     isFullscreen={isFullscreen}
                     setIsFullscreen={setIsFullscreen}
-                    updateNoteFormatting={updateNoteFormatting} // Pass formatting updater
-                    updateNoteContent={updateNoteContent}
-                    cursorPosition={cursorPosition}
                   />
 
                   <div className="flex-1 overflow-y-auto">
@@ -557,19 +543,18 @@ const AppleNotes = () => {
                         setNotes={setNotes}
                         activeNote={activeNote}
                       />
-                      <TextEditor
-                        contentRef={contentRef}
-                        currentNote={currentNote}
-                        updateNoteContent={updateNoteContent}
-                        handleSelectionChange={handleSelectionChange}
-                        handlePaste={handlePaste}
-                        darkMode={darkMode}
-                        globalTextColor={currentNote.textColor || (darkMode ? '#ffffff' : '#000000')}
-                        globalFontSize={currentNote.fontSize || 16}
-                        globalIsBold={currentNote.isBold || false}
-                        globalIsItalic={currentNote.isItalic || false}
-                        globalIsUnderline={currentNote.isUnderline || false}
-                      />
+                      {hydrated && (
+                        <TextEditor
+                          key={currentNote.id}
+                          contentRef={contentRef}
+                          editorRef={editorRef}
+                          currentNote={currentNote}
+                          updateNoteContent={updateNoteContent}
+                          handlePaste={handlePaste}
+                          darkMode={darkMode}
+                          onEditorReady={setEditor}
+                        />
+                      )}
                     </div>
                   </div>
                 </>

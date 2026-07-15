@@ -1,132 +1,285 @@
-import React, { useRef, useEffect } from 'react';
+import { useEditor, EditorContent } from '@tiptap/react';
+import StarterKit from '@tiptap/starter-kit';
+import Link from '@tiptap/extension-link';
+import Placeholder from '@tiptap/extension-placeholder';
+import { TextStyleKit } from '@tiptap/extension-text-style';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  ensureBodyHtml,
+  joinNoteContent,
+  splitNoteContent,
+} from '@/lib/noteContent';
+
+const createExtensions = () => [
+  StarterKit.configure({
+    heading: { levels: [1, 2, 3, 4] },
+    link: false,
+  }),
+  TextStyleKit,
+  Link.configure({
+    openOnClick: false,
+    autolink: true,
+    linkOnPaste: true,
+    defaultProtocol: 'https',
+    HTMLAttributes: {
+      class: 'rte-link',
+      rel: 'noopener noreferrer nofollow',
+      target: '_blank',
+    },
+  }),
+  Placeholder.configure({
+    placeholder: 'Start typing...',
+  }),
+];
+
+function formatNoteTime(note) {
+  if (!note) return '';
+
+  const now = new Date();
+  const hasBeenEdited = note.lastEditedAt && note.lastEditedAt !== null;
+  const relevantDate = hasBeenEdited
+    ? new Date(note.lastEditedAt)
+    : new Date(note.createdAt || note.timestamp);
+  const prefix = hasBeenEdited ? 'Last edited' : 'Created';
+
+  const diffMs = now - relevantDate;
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const noteDay = new Date(
+    relevantDate.getFullYear(),
+    relevantDate.getMonth(),
+    relevantDate.getDate()
+  );
+  const diffDays = Math.floor((today - noteDay) / (1000 * 60 * 60 * 24));
+
+  if (diffMins < 1) {
+    return `${prefix} just now`;
+  }
+  if (diffMins < 60) {
+    return `${prefix} ${diffMins} ${diffMins === 1 ? 'minute' : 'minutes'} ago`;
+  }
+  if (diffHours < 24) {
+    return `${prefix} ${diffHours} ${diffHours === 1 ? 'hour' : 'hours'} ago`;
+  }
+  if (diffDays === 0) {
+    return `${prefix} today at ${relevantDate.toLocaleTimeString('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+    })}`;
+  }
+  if (diffDays === 1) {
+    return `${prefix} yesterday`;
+  }
+  if (diffDays < 7) {
+    return `${prefix} on ${relevantDate.toLocaleDateString('en-US', { weekday: 'long' })}`;
+  }
+  return `${prefix} on ${relevantDate.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: diffDays > 365 ? 'numeric' : undefined,
+  })}`;
+}
 
 const TextEditor = ({
   contentRef,
+  editorRef,
   currentNote,
   updateNoteContent,
-  handleSelectionChange,
   handlePaste,
   darkMode,
-  globalTextColor,
-  globalFontSize,
-  globalIsBold,
-  globalIsItalic,
-  globalIsUnderline
+  onEditorReady,
 }) => {
   const titleRef = useRef(null);
-  const bodyRef = useRef(null);
+  const noteIdRef = useRef(null);
+  const skippingUpdateRef = useRef(false);
+  const [, setTimeTick] = useState(0);
 
-  // Derive title and body from currentNote.content directly
-  const content = currentNote.content || '';
-  const firstLineEnd = content.indexOf('\n');
-  let title = '';
-  let body = '';
+  const { title, body } = useMemo(
+    () => splitNoteContent(currentNote?.content || ''),
+    [currentNote?.content]
+  );
 
-  if (firstLineEnd === -1) {
-    title = content;
-    body = '';
-  } else {
-    title = content.substring(0, firstLineEnd);
-    body = content.substring(firstLineEnd + 1);
-  }
+  const extensions = useMemo(() => createExtensions(), []);
+
+  const initialHtml = useMemo(() => ensureBodyHtml(body), []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    const interval = setInterval(() => setTimeTick((t) => t + 1), 60000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const editor = useEditor({
+    extensions,
+    content: initialHtml,
+    immediatelyRender: false,
+    editorProps: {
+      attributes: {
+        class: `rte-prose outline-none min-h-[240px] px-4 py-3 leading-relaxed tracking-wide ${
+          darkMode ? 'text-gray-200' : 'text-gray-800'
+        }`,
+        spellcheck: 'false',
+      },
+      handlePaste: (_view, event) => {
+        const items = event.clipboardData?.items;
+        if (!items) return false;
+
+        for (const item of items) {
+          if (item.type.indexOf('image') !== -1) {
+            if (handlePaste) handlePaste(event);
+            return true;
+          }
+        }
+        return false;
+      },
+    },
+    onUpdate: ({ editor: ed }) => {
+      if (skippingUpdateRef.current) return;
+      const html = ed.getHTML();
+      const currentTitle =
+        titleRef.current?.value ?? splitNoteContent(currentNote?.content || '').title;
+      updateNoteContent(joinNoteContent(currentTitle, html === '<p></p>' ? '' : html));
+    },
+  });
+
+  useEffect(() => {
+    if (editorRef) editorRef.current = editor;
+    if (onEditorReady) onEditorReady(editor);
+
+    if (contentRef) {
+      contentRef.current = editor
+        ? {
+            type: 'tiptap',
+            editor,
+            focus: () => editor.commands.focus(),
+            insertText: (text) => {
+              const needsSpace =
+                editor.state.selection.from > 0 &&
+                !/\s/.test(
+                  editor.state.doc.textBetween(
+                    Math.max(0, editor.state.selection.from - 1),
+                    editor.state.selection.from
+                  )
+                );
+              editor
+                .chain()
+                .focus()
+                .insertContent(needsSpace ? ` ${text}` : text)
+                .run();
+            },
+            getText: () => editor.getText(),
+            getHTML: () => editor.getHTML(),
+          }
+        : null;
+    }
+
+    return () => {
+      if (editorRef && editorRef.current === editor) {
+        editorRef.current = null;
+      }
+      if (onEditorReady) onEditorReady(null);
+      if (contentRef) contentRef.current = null;
+    };
+  }, [editor, contentRef, editorRef, onEditorReady]);
+
+  useEffect(() => {
+    if (!editor || !currentNote) return;
+
+    const { body: nextBody } = splitNoteContent(currentNote.content || '');
+    const html = ensureBodyHtml(nextBody);
+    const switched = noteIdRef.current !== currentNote.id;
+
+    const apply = () => {
+      skippingUpdateRef.current = true;
+      editor.commands.setContent(html || '', { emitUpdate: false });
+      skippingUpdateRef.current = false;
+    };
+
+    if (switched) {
+      noteIdRef.current = currentNote.id;
+      apply();
+      return;
+    }
+
+    const editorEmpty = !editor.getText().trim();
+    if (editorEmpty && nextBody && nextBody.trim()) {
+      apply();
+    }
+  }, [currentNote?.id, currentNote?.content, editor, currentNote]);
+
+  useEffect(() => {
+    if (!editor) return;
+    editor.setOptions({
+      editorProps: {
+        ...editor.options.editorProps,
+        attributes: {
+          ...editor.options.editorProps?.attributes,
+          class: `rte-prose outline-none min-h-[240px] px-4 py-3 leading-relaxed tracking-wide ${
+            darkMode ? 'text-gray-200' : 'text-gray-800'
+          }`,
+          spellcheck: 'false',
+        },
+      },
+    });
+  }, [darkMode, editor]);
 
   const handleTitleChange = (e) => {
-    const newTitle = e.target.value.replace(/\n/g, ''); // Prevent newlines in title
-    updateNoteContent(newTitle + '\n' + body);
-  };
-
-  const handleBodyChange = (e) => {
-    const newBody = e.target.value;
-    updateNoteContent(title + '\n' + newBody);
+    const newTitle = e.target.value.replace(/\n/g, '');
+    const html = editor?.getHTML() || ensureBodyHtml(body);
+    updateNoteContent(joinNoteContent(newTitle, html === '<p></p>' ? '' : html));
   };
 
   const handleTitleKeyDown = (e) => {
     if (e.key === 'Enter') {
       e.preventDefault();
-      // Focus body
-      if (bodyRef.current) {
-        bodyRef.current.focus();
-        // Place cursor at start
-        bodyRef.current.setSelectionRange(0, 0);
-      }
+      editor?.commands.focus('start');
     }
   };
 
-  const handleTitleSelection = () => {
-    if (titleRef.current && handleSelectionChange) {
-      handleSelectionChange(titleRef.current.selectionStart);
-    }
-  };
-
-  const handleBodySelection = () => {
-    if (bodyRef.current && handleSelectionChange) {
-      // The absolute index is the title length + 1 (for the newline character) + body selection start
-      handleSelectionChange(title.length + 1 + bodyRef.current.selectionStart);
-    }
-  };
-
-  // Sync contentRef to bodyRef for external access (Toolbar, Audio, Search)
-  // This allows the "Search" feature to focus the BODY content.
-  useEffect(() => {
-    if (contentRef) {
-      contentRef.current = bodyRef.current;
-    }
-  }, [contentRef]);
-
-  // Calculate dynamic font size for title
-  // Ensure it's always significantly larger than the body text
-  const titleFontSize = Math.max(globalFontSize * 1.5, 24);
+  const titleFontSize = 28;
 
   return (
-    <div className="flex flex-col w-full h-full gap-2">
-      {/* Title Input - Designated First Line */}
-      <input
-        ref={titleRef}
-        type="text"
-        value={title}
-        onChange={handleTitleChange}
-        onKeyDown={handleTitleKeyDown}
-        onSelect={handleTitleSelection}
-        onKeyUp={handleTitleSelection}
-        onClick={handleTitleSelection}
-        placeholder="New Note"
-        className={`w-full bg-transparent px-4 py-2 font-bold outline-none transition-colors duration-200 border-none ${darkMode
-          ? 'text-gray-100 placeholder-gray-600'
-          : 'text-gray-900 placeholder-gray-300'
+    <div className="flex flex-col w-full h-full gap-1">
+      <div className="px-4 pt-1">
+        <input
+          ref={titleRef}
+          type="text"
+          value={title}
+          onChange={handleTitleChange}
+          onKeyDown={handleTitleKeyDown}
+          placeholder="New Note"
+          className={`w-full bg-transparent py-1 font-bold outline-none transition-colors duration-200 border-none ${
+            darkMode
+              ? 'text-gray-100 placeholder-gray-600'
+              : 'text-gray-900 placeholder-gray-300'
           }`}
-        style={{
-          fontSize: `${titleFontSize}px`,
-          // Title keeps its default theme color — color picker only affects the body content.
-        }}
-      />
+          style={{ fontSize: `${titleFontSize}px` }}
+        />
+        <p
+          className={`text-xs font-medium tracking-wide mt-0.5 ${
+            darkMode ? 'text-gray-400' : 'text-gray-500'
+          }`}
+        >
+          {formatNoteTime(currentNote)}
+        </p>
+      </div>
 
-      {/* Body Textarea - Rest of Content */}
-      <textarea
-        ref={bodyRef}
-        value={body}
-        onChange={handleBodyChange}
-        onSelect={handleBodySelection}
-        onKeyUp={handleBodySelection}
-        onClick={handleBodySelection}
-        onPaste={handlePaste}
-        placeholder="Start typing..."
-        className={`w-full flex-1 resize-none outline-none px-4 py-3 rounded-xl transition-colors duration-200 leading-relaxed tracking-wide ${darkMode
-          ? 'bg-[#0f0f0f] text-gray-200 placeholder-gray-500 focus:bg-[#111111]'
-          : 'bg-[#fafafa] text-gray-800 placeholder-gray-400 focus:bg-white'
-          }`}
+      <div
+        className={`w-full flex-1 rounded-xl transition-colors duration-200 overflow-y-auto ${
+          darkMode
+            ? 'bg-[#0f0f0f] focus-within:bg-[#111111]'
+            : 'bg-[#fafafa] focus-within:bg-white'
+        }`}
         style={{
-          color: globalTextColor,
-          fontSize: `${globalFontSize}px`,
-          fontWeight: globalIsBold ? 'bold' : 'normal',
-          fontStyle: globalIsItalic ? 'italic' : 'normal',
-          textDecoration: globalIsUnderline ? 'underline' : 'none',
+          fontSize: '16px',
           boxShadow: darkMode
             ? 'inset 0 0 0 1px rgba(255,255,255,0.05)'
             : 'inset 0 0 0 1px rgba(0,0,0,0.05)',
         }}
-        // Enable spellcheck
-        spellCheck="false"
-      />
+      >
+        <EditorContent editor={editor} />
+      </div>
     </div>
   );
 };

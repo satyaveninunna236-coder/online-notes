@@ -1,23 +1,22 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Bold, Italic, Underline, Type, Menu, Lock, Moon, Search, Settings, ChevronUp, ChevronDown, Fullscreen, Unlock, ShieldOff, Trash2, Mic } from 'lucide-react';
+import { Bold, Italic, Underline, Menu, Lock, Search, ChevronUp, ChevronDown, Fullscreen, ShieldOff, Trash2, Mic, MoreVertical, Check, List, ListOrdered } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import AudioRecorder from './AudioRecorder';
+import DesktopRichToolbar from './DesktopRichToolbar';
+import { findTextMatchesInEditor, FONT_SIZES } from '@/lib/noteContent';
 
 const FormattingToolbar = ({
   currentNote,
   setIsMobileSidebarOpen,
-  globalIsBold,
-  setGlobalIsBold,
-  globalIsItalic,
-  setGlobalIsItalic,
-  globalIsUnderline,
-  setGlobalIsUnderline,
-  globalFontSize,
-  handleFontSizeChange,
-  globalTextColor,
-  setGlobalTextColor,
   darkMode,
   contentRef,
+  editor,
   onSetPassword,
   onLockNote,
   onRemovePassword,
@@ -25,9 +24,6 @@ const FormattingToolbar = ({
   onDropdownStateChange,
   isFullscreen,
   setIsFullscreen,
-  updateNoteFormatting,
-  updateNoteContent,
-  cursorPosition
 }) => {
   const [isAudioRecorderOpen, setIsAudioRecorderOpen] = useState(false);
   const [isColorPickerOpen, setIsColorPickerOpen] = useState(false);
@@ -39,8 +35,19 @@ const FormattingToolbar = ({
   const settingsRef = useRef(null);
   const mobileSettingsRef = useRef(null);
   const colorPickerRef = useRef(null);
-  const [, setUpdateTrigger] = useState(0); // For forcing re-renders to update time
-  
+  const [, setEditorTick] = useState(0);
+
+  useEffect(() => {
+    if (!editor) return undefined;
+    const refresh = () => setEditorTick((t) => t + 1);
+    editor.on('selectionUpdate', refresh);
+    editor.on('transaction', refresh);
+    return () => {
+      editor.off('selectionUpdate', refresh);
+      editor.off('transaction', refresh);
+    };
+  }, [editor]);
+
   const PRESET_COLORS = [
     { name: 'Default', value: darkMode ? '#ffffff' : '#000000' },
     { name: 'Red', value: '#ef4444' },
@@ -53,52 +60,116 @@ const FormattingToolbar = ({
     { name: 'Gray', value: '#6b7280' },
   ];
 
-  // Update the time display every minute
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setUpdateTrigger(prev => prev + 1);
-    }, 60000); // Update every minute
+  const isBold = editor?.isActive('bold') ?? false;
+  const isItalic = editor?.isActive('italic') ?? false;
+  const isUnderline = editor?.isActive('underline') ?? false;
+  const activeColor = editor?.getAttributes('textStyle')?.color || (darkMode ? '#ffffff' : '#000000');
+  const activeFontSizeValue = editor?.getAttributes('textStyle')?.fontSize || '';
+  const activeFontSize =
+    FONT_SIZES.find((s) => s.value === activeFontSizeValue) || FONT_SIZES[0];
 
-    return () => clearInterval(interval);
-  }, []);
+  const menuItemClass = `w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors ${
+    darkMode ? 'hover:bg-gray-800 text-gray-200' : 'hover:bg-gray-100 text-gray-700'
+  }`;
+  const menuDangerClass = `w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors ${
+    darkMode ? 'hover:bg-gray-800 text-red-400' : 'hover:bg-gray-100 text-red-600'
+  }`;
+  const menuPanelClass = `absolute right-0 mt-2 w-52 rounded-xl shadow-lg border z-50 py-1 ${
+    darkMode ? 'bg-[#111111] border-gray-700' : 'bg-white border-gray-200'
+  }`;
 
-  // Smart format: show "Created" if never edited, "Last edited" if edited
-  const formatNoteTime = (note) => {
-    const now = new Date();
+  const renderSettingsMenu = (includeDelete) => (
+    <div className={menuPanelClass}>
+      <button
+        type="button"
+        onClick={() => {
+          setIsSettingsOpen(false);
+          setIsSearchOpen(true);
+        }}
+        className={menuItemClass}
+      >
+        <Search size={16} className="text-blue-500" />
+        <span>Search in note</span>
+      </button>
 
-    // Check if note has been edited (lastEditedAt exists and is not null)
-    const hasBeenEdited = note.lastEditedAt && note.lastEditedAt !== null;
+      <button
+        type="button"
+        onClick={() => {
+          setIsSettingsOpen(false);
+          setIsFullscreen(!isFullscreen);
+        }}
+        className={menuItemClass}
+      >
+        <Fullscreen size={16} className={isFullscreen ? 'text-blue-500' : ''} />
+        <span>{isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}</span>
+      </button>
 
-    // Use the appropriate timestamp
-    const relevantDate = hasBeenEdited ? new Date(note.lastEditedAt) : new Date(note.createdAt || note.timestamp);
-    const prefix = hasBeenEdited ? 'Last edited' : 'Created';
+      <div className={`h-px my-1 ${darkMode ? 'bg-gray-800' : 'bg-gray-200'}`} />
 
-    const diffMs = now - relevantDate;
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMs / 3600000);
+      <button
+        type="button"
+        onClick={() => {
+          setIsSettingsOpen(false);
+          onSetPassword(currentNote.id);
+        }}
+        className={menuItemClass}
+      >
+        <Lock size={16} className="text-blue-500" />
+        <span>Set Password</span>
+      </button>
 
-    // Get the start of today and the note's day (midnight) for accurate day comparison
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const noteDay = new Date(relevantDate.getFullYear(), relevantDate.getMonth(), relevantDate.getDate());
-    const diffTime = today - noteDay;
-    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+      {lastPassword && !currentNote.passwordProtected && (
+        <button
+          type="button"
+          onClick={() => {
+            setIsSettingsOpen(false);
+            onLockNote(currentNote.id);
+          }}
+          className={menuItemClass}
+        >
+          <Lock size={16} className="text-yellow-500" />
+          <span>Lock Note Now</span>
+        </button>
+      )}
 
-    if (diffMins < 1) {
-      return `${prefix} just now`;
-    } else if (diffMins < 60) {
-      return `${prefix} ${diffMins} ${diffMins === 1 ? 'minute' : 'minutes'} ago`;
-    } else if (diffHours < 24) {
-      return `${prefix} ${diffHours} ${diffHours === 1 ? 'hour' : 'hours'} ago`;
-    } else if (diffDays === 0) {
-      return `${prefix} today at ${relevantDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`;
-    } else if (diffDays === 1) {
-      return `${prefix} yesterday`;
-    } else if (diffDays < 7) {
-      return `${prefix} on ${relevantDate.toLocaleDateString('en-US', { weekday: 'long' })}`;
-    } else {
-      return `${prefix} on ${relevantDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: diffDays > 365 ? 'numeric' : undefined })}`;
-    }
-  };
+      {currentNote.encryptedContent && (
+        <button
+          type="button"
+          onClick={() => {
+            setIsSettingsOpen(false);
+            onRemovePassword(currentNote.id);
+          }}
+          className={menuDangerClass}
+        >
+          <ShieldOff size={16} />
+          <span>Remove Password</span>
+        </button>
+      )}
+
+      {includeDelete && (
+        <>
+          <div className={`h-px my-1 ${darkMode ? 'bg-gray-800' : 'bg-gray-200'}`} />
+          <button
+            type="button"
+            onClick={() => {
+              setIsSettingsOpen(false);
+              window.dispatchEvent(
+                new KeyboardEvent('keydown', {
+                  key: 'Delete',
+                  ctrlKey: true,
+                  code: 'Delete',
+                })
+              );
+            }}
+            className={menuDangerClass}
+          >
+            <Trash2 size={16} />
+            <span>Delete Note</span>
+          </button>
+        </>
+      )}
+    </div>
+  );
 
   // Notify parent about dropdown state changes
   useEffect(() => {
@@ -110,79 +181,51 @@ const FormattingToolbar = ({
   const handleSearch = (value) => {
     setSearchQuery(value);
 
-    if (!value || !contentRef?.current) {
+    if (!value.trim()) {
       setTotalMatches(0);
       setCurrentMatchIndex(0);
       return;
     }
 
-    const content = currentNote.content.toLowerCase();
-    const searchTerm = value.toLowerCase();
-
-    // Count total matches
-    const matches = [];
-    let index = content.indexOf(searchTerm);
-    while (index !== -1) {
-      matches.push(index);
-      index = content.indexOf(searchTerm, index + 1);
+    if (!editor) {
+      setTotalMatches(0);
+      setCurrentMatchIndex(0);
+      return;
     }
 
+    const matches = findTextMatchesInEditor(editor, value.trim());
     setTotalMatches(matches.length);
-    setCurrentMatchIndex(matches.length > 0 ? 0 : 0);
+    setCurrentMatchIndex(0);
+    if (matches.length > 0) {
+      editor.chain().focus().setTextSelection(matches[0]).scrollIntoView().run();
+    }
   };
 
   const navigateMatch = useCallback((direction) => {
-    if (!searchQuery || totalMatches === 0 || !contentRef?.current) return;
+    if (!searchQuery.trim() || totalMatches === 0 || !editor) return;
 
-    const content = currentNote.content.toLowerCase();
-    const searchTerm = searchQuery.toLowerCase();
-
-    // Find all matches from top to bottom
-    const matches = [];
-    let index = content.indexOf(searchTerm);
-    while (index !== -1) {
-      matches.push(index);
-      index = content.indexOf(searchTerm, index + 1);
+    const matches = findTextMatchesInEditor(editor, searchQuery.trim());
+    if (!matches.length) {
+      setTotalMatches(0);
+      return;
     }
 
-    // Calculate new index
     let newIndex = currentMatchIndex + direction;
     if (newIndex < 0) newIndex = matches.length - 1;
     if (newIndex >= matches.length) newIndex = 0;
-
     setCurrentMatchIndex(newIndex);
-
-    // Highlight the match and scroll to it
-    const matchPos = matches[newIndex];
-    const textarea = contentRef.current;
-
-    // Set selection
-    textarea.focus();
-    textarea.setSelectionRange(matchPos, matchPos + searchQuery.length);
-
-    // Calculate proper scroll position
-    const textBeforeMatch = content.substring(0, matchPos);
-    const linesBeforeMatch = textBeforeMatch.split('\n').length;
-    const lineHeight = parseInt(window.getComputedStyle(textarea).lineHeight) || 24;
-    const targetScroll = (linesBeforeMatch - 3) * lineHeight; // Show match near top with some padding
-
-    textarea.scrollTop = Math.max(0, targetScroll);
-  }, [searchQuery, totalMatches, contentRef, currentNote.content, currentMatchIndex]);
+    setTotalMatches(matches.length);
+    editor.chain().focus().setTextSelection(matches[newIndex]).scrollIntoView().run();
+  }, [searchQuery, totalMatches, editor, currentMatchIndex]);
 
   const handleInsertText = (text) => {
-    if (!contentRef.current || !updateNoteContent) return;
-
-    const currentText = currentNote.content || '';
-    
-    // Use the absolute cursorPosition tracked from TextEditor
-    const start = cursorPosition || 0;
-    const end = cursorPosition || 0;
-
-    // Insert text at absolute cursor position
-    const textToInsert = (start > 0 && currentText[start - 1] !== ' ' && currentText[start - 1] !== '\n' ? ' ' : '') + text; // Add leading space if needed
-    const newText = currentText.substring(0, start) + textToInsert + currentText.substring(end);
-
-    updateNoteContent(newText);
+    if (contentRef?.current?.insertText) {
+      contentRef.current.insertText(text);
+      return;
+    }
+    if (editor) {
+      editor.chain().focus().insertContent(text).run();
+    }
   };
 
 
@@ -239,219 +282,140 @@ const FormattingToolbar = ({
     <>
       <div className={`relative flex flex-col border-b w-full ${darkMode ? 'border-gray-800 bg-[#1a1a1a]' : 'border-gray-100 bg-white'
         }`}>
-        {/* Top Row - Title and Menu */}
-        <div className={`flex flex-col md:flex-row md:items-center md:justify-between px-3 py-2 gap-2`}>
-          {/* Left Section - Title */}
-          <div className="flex items-center gap-3 flex-1">
+        {/* Top Row - chrome actions only (title/time live in the editor) */}
+        <div className={`flex items-center justify-between px-3 py-2 gap-2`}>
+          <div className="flex items-center gap-2">
             <button
               onClick={() => setIsMobileSidebarOpen(true)}
               className={`md:hidden p-2 rounded-lg transition-colors ${darkMode ? 'hover:bg-gray-800 text-gray-400' : 'hover:bg-gray-100 text-gray-600'
                 }`}
+              aria-label="Open sidebar"
             >
               <Menu size={20} />
             </button>
-            <div className="grid grid-cols-[1fr_auto] items-start w-full gap-3">
-              {/* Heading */}
-              <div className="min-w-0">
-                {/* Note Title */}
-                <div className="flex flex-col leading-tight">
-                  <h2
-                    className={`text-[17px] md:text-lg font-semibold line-clamp-1 break-all ${darkMode ? 'text-white' : 'text-gray-900'
+          </div>
+
+          {/* Action Icons - Mobile */}
+          <div className="flex md:hidden items-center gap-1 shrink-0">
+            <div
+              className={`flex items-center gap-1 p-1.5 rounded-2xl shadow-sm ${darkMode ? 'bg-[#111111]' : 'bg-gray-100'
+                }`}
+            >
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={() => setIsAudioRecorderOpen(true)}
+                    className={`w-9 h-9 flex items-center justify-center rounded-xl transition-all duration-150 active:scale-95 ${isAudioRecorderOpen
+                      ? darkMode ? 'bg-red-600 text-white' : 'bg-red-500 text-white'
+                      : darkMode ? 'hover:bg-gray-800 text-gray-300' : 'hover:bg-white text-gray-700'
                       }`}
                   >
-                    {currentNote.title}
-                  </h2>
+                    <Mic size={18} />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Voice to Text</p>
+                </TooltipContent>
+              </Tooltip>
 
-                  {/* Sub status */}
-                  <span
-                    className={`text-xs font-medium tracking-wide ${darkMode ? 'text-gray-400' : 'text-gray-500'
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    className={`flex items-center justify-center w-9 h-9 rounded-xl transition-all duration-150 active:scale-95 ${darkMode
+                      ? 'hover:bg-gray-800 text-gray-300'
+                      : 'hover:bg-white text-gray-700'
                       }`}
+                    onClick={() => {
+                      window.dispatchEvent(
+                        new KeyboardEvent('keydown', {
+                          key: 'Delete',
+                          ctrlKey: true,
+                          code: 'Delete',
+                        })
+                      );
+                    }}
                   >
-                    {formatNoteTime(currentNote)}
-                  </span>
-                </div>
-              </div>
-              {/* Action Icons - Mobile placement */}
-              <div className="flex md:hidden items-center gap-1 shrink-0">
-                <div
-                  className={`flex items-center gap-1 p-1.5 rounded-2xl shadow-sm ${darkMode ? 'bg-[#111111]' : 'bg-gray-100'
-                    }`}
-                >
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <button
-                        onClick={() => setIsAudioRecorderOpen(true)}
-                        className={`w-9 h-9 flex items-center justify-center rounded-xl transition-all duration-150 active:scale-95 ${isAudioRecorderOpen
-                          ? darkMode ? 'bg-red-600 text-white' : 'bg-red-500 text-white'
-                          : darkMode ? 'hover:bg-gray-800 text-gray-300' : 'hover:bg-white text-gray-700'
-                          }`}
-                      >
-                        <Mic size={18} />
-                      </button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>Voice to Text</p>
-                    </TooltipContent>
-                  </Tooltip>
+                    <Trash2 size={18} />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Delete Note</p>
+                </TooltipContent>
+              </Tooltip>
 
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <button
-                        onClick={() => setIsSearchOpen(prev => !prev)}
-                        className={`w-9 h-9 flex items-center justify-center rounded-xl transition-all duration-150 active:scale-95 ${darkMode
-                          ? 'hover:bg-gray-800 text-gray-300'
-                          : 'hover:bg-white text-gray-700'
-                          }`}
-                      >
-                        <Search size={18} />
-                      </button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>Search in Note</p>
-                    </TooltipContent>
-                  </Tooltip>
-
-                  <div className="flex items-center justify-center w-9 h-9 rounded-xl transition-all duration-150 active:scale-95">
-                    {/* Fullscreen button - visible on md+ screens */}
+              <div className="relative" ref={mobileSettingsRef}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
                     <button
-                      className={`hidden md:flex items-center justify-center w-full h-full rounded-xl transition-all duration-150 active:scale-95 ${isFullscreen
-                        ? darkMode
-                          ? 'bg-blue-600 text-white'
-                          : 'bg-blue-500 text-white'
-                        : darkMode
-                          ? 'hover:bg-gray-800 text-gray-300'
-                          : 'hover:bg-white text-gray-700'
+                      onClick={() => setIsSettingsOpen(prev => !prev)}
+                      className={`w-9 h-9 flex items-center justify-center rounded-xl transition-all duration-150 active:scale-95 ${darkMode
+                        ? 'hover:bg-gray-800 text-gray-300'
+                        : 'hover:bg-white text-gray-700'
                         }`}
-                      onClick={() => setIsFullscreen(!isFullscreen)}
-                      title={isFullscreen ? "Exit Fullscreen" : "Fullscreen Mode"}
+                      aria-label="More options"
                     >
-                      <Fullscreen size={18} />
+                      <MoreVertical size={18} />
                     </button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>More</p>
+                  </TooltipContent>
+                </Tooltip>
 
-                    {/* Trash button - visible on small screens, now deletes note */}
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <button
-                          className={`flex md:hidden items-center justify-center w-full h-full rounded-xl transition-all duration-150 active:scale-95 ${darkMode
-                            ? 'hover:bg-gray-800 text-gray-300'
-                            : 'hover:bg-white text-gray-700'
-                            }`}
-                          onClick={() => {
-                            const event = new KeyboardEvent('keydown', {
-                              key: 'Delete',
-                              ctrlKey: true,
-                              code: 'Delete'
-                            });
-                            window.dispatchEvent(event);
-                          }}
-                        >
-                          <Trash2 size={18} />
-                        </button>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>Delete Note</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </div>
-
-
-
-
-                  <div className="relative" ref={mobileSettingsRef}>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <button
-                          onClick={() => setIsSettingsOpen(prev => !prev)}
-                          className={`w-9 h-9 flex items-center justify-center rounded-xl transition-all duration-150 active:scale-95 ${darkMode
-                            ? 'hover:bg-gray-800 text-gray-300'
-                            : 'hover:bg-white text-gray-700'
-                            }`}
-                        >
-                          <Settings size={18} />
-                        </button>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>Settings</p>
-                      </TooltipContent>
-                    </Tooltip>
-
-                    {isSettingsOpen && (
-                      <div className={`absolute right-0 mt-2 w-48 rounded-xl shadow-lg border z-50 py-1 ${darkMode
-                        ? 'bg-[#111111] border-gray-700'
-                        : 'bg-white border-gray-200'
-                        }`}>
-                        {/* Set Password Option */}
-                        <button
-                          onClick={() => {
-                            setIsSettingsOpen(false);
-                            onSetPassword(currentNote.id);
-                          }}
-                          className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors ${darkMode
-                            ? 'hover:bg-gray-800 text-gray-200'
-                            : 'hover:bg-gray-100 text-gray-700'
-                            }`}
-                        >
-                          <Lock size={16} className="text-blue-500" />
-                          <span>Set Password</span>
-                        </button>
-
-                        {/* Lock Note Option - only show if password is already set */}
-                        {lastPassword && !currentNote.passwordProtected && (
-                          <button
-                            onClick={() => {
-                              setIsSettingsOpen(false);
-                              onLockNote(currentNote.id);
-                            }}
-                            className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors ${darkMode
-                              ? 'hover:bg-gray-800 text-gray-200'
-                              : 'hover:bg-gray-100 text-gray-700'
-                              }`}
-                          >
-                            <Lock size={16} className="text-yellow-500" />
-                            <span>Lock Note Now</span>
-                          </button>
-                        )}
-
-                        {/* Remove Password Option - only show if encrypted content exists */}
-                        {currentNote.encryptedContent && (
-                          <>
-                            <div className={`h-px my-1 ${darkMode ? 'bg-gray-800' : 'bg-gray-200'}`} />
-                            <button
-                              onClick={() => {
-                                setIsSettingsOpen(false);
-                                onRemovePassword(currentNote.id);
-                              }}
-                              className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors ${darkMode
-                                ? 'hover:bg-gray-800 text-red-400'
-                                : 'hover:bg-gray-100 text-red-600'
-                                }`}
-                            >
-                              <ShieldOff size={16} />
-                              <span>Remove Password</span>
-                            </button>
-                          </>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </div>
+                {isSettingsOpen && renderSettingsMenu(false)}
               </div>
             </div>
           </div>
 
+          {/* Desktop more menu */}
+          <div className="hidden md:flex justify-end">
+            <div
+              className={`flex items-center gap-1 p-1.5 rounded-2xl shadow-sm ${darkMode ? 'bg-[#111111]' : 'bg-gray-100'
+                }`}
+            >
+              <div className="relative" ref={settingsRef}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      onClick={() => setIsSettingsOpen(prev => !prev)}
+                      className={`w-9 h-9 flex items-center justify-center rounded-xl transition-all duration-150 active:scale-95 ${darkMode
+                        ? 'hover:bg-gray-800 text-gray-300'
+                        : 'hover:bg-white text-gray-700'
+                        }`}
+                      aria-label="More options"
+                    >
+                      <MoreVertical size={18} />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>More</p>
+                  </TooltipContent>
+                </Tooltip>
 
-          <div
+                {isSettingsOpen && renderSettingsMenu(true)}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div
             className={`flex items-center justify-start gap-2 px-3 py-2 border-t flex-wrap rounded-2xl mx-2 mb-2 shadow-sm ${darkMode ? 'bg-[#111111] border-gray-700' : 'bg-gray-200 border-gray-200'
               }`}
           >
-            {/* Text Formatting Group */}
-            <div className={`flex items-center gap-1 p-1.5 rounded-xl md:shrink-0 shadow-inner ${darkMode ? 'bg-gray-800/60' : 'bg-white'
+            {/* Desktop rich toolbar (lg+) — selection / block formatting */}
+            <DesktopRichToolbar editor={editor} darkMode={darkMode} />
+
+            {/* Mobile / tablet formatting — preserved layout, TipTap-backed */}
+            <div className={`flex lg:hidden items-center gap-1 p-1.5 rounded-xl md:shrink-0 shadow-inner ${darkMode ? 'bg-gray-800/60' : 'bg-white'
               }`}>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <button
-                    onClick={() => setGlobalIsBold(!globalIsBold)}
-                    className={`w-9 h-9 flex items-center justify-center rounded-2xl transition-all duration-150 active:scale-95 ${globalIsBold
+                    type="button"
+                    aria-label="Bold"
+                    aria-pressed={isBold}
+                    onClick={() => editor?.chain().focus().toggleBold().run()}
+                    className={`w-9 h-9 flex items-center justify-center rounded-2xl transition-all duration-150 active:scale-95 ${isBold
                       ? darkMode ? 'bg-blue-600 text-white' : 'bg-blue-500 text-white'
                       : darkMode ? 'hover:bg-gray-700 text-gray-400' : 'hover:bg-gray-200 text-gray-600'
                       }`}
@@ -467,8 +431,11 @@ const FormattingToolbar = ({
               <Tooltip>
                 <TooltipTrigger asChild>
                   <button
-                    onClick={() => setGlobalIsItalic(!globalIsItalic)}
-                    className={`w-9 h-9 flex items-center justify-center rounded-2xl transition-all duration-150 active:scale-95 ${globalIsItalic
+                    type="button"
+                    aria-label="Italic"
+                    aria-pressed={isItalic}
+                    onClick={() => editor?.chain().focus().toggleItalic().run()}
+                    className={`w-9 h-9 flex items-center justify-center rounded-2xl transition-all duration-150 active:scale-95 ${isItalic
                       ? darkMode ? 'bg-blue-600 text-white' : 'bg-blue-500 text-white'
                       : darkMode ? 'hover:bg-gray-700 text-gray-400' : 'hover:bg-gray-200 text-gray-600'
                       }`}
@@ -484,8 +451,11 @@ const FormattingToolbar = ({
               <Tooltip>
                 <TooltipTrigger asChild>
                   <button
-                    onClick={() => setGlobalIsUnderline(!globalIsUnderline)}
-                    className={`w-9 h-9 flex items-center justify-center rounded-2xl transition-all duration-150 active:scale-95 ${globalIsUnderline
+                    type="button"
+                    aria-label="Underline"
+                    aria-pressed={isUnderline}
+                    onClick={() => editor?.chain().focus().toggleUnderline().run()}
+                    className={`w-9 h-9 flex items-center justify-center rounded-2xl transition-all duration-150 active:scale-95 ${isUnderline
                       ? darkMode ? 'bg-blue-600 text-white ' : 'bg-blue-500 text-white  '
                       : darkMode ? 'hover:bg-gray-700 text-gray-400' : 'hover:bg-gray-200 text-gray-600'
                       }`}
@@ -497,49 +467,93 @@ const FormattingToolbar = ({
                   <p>Underline</p>
                 </TooltipContent>
               </Tooltip>
+
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    aria-label="Bullet list"
+                    aria-pressed={editor?.isActive('bulletList')}
+                    onClick={() => editor?.chain().focus().toggleBulletList().run()}
+                    className={`w-9 h-9 flex items-center justify-center rounded-2xl transition-all duration-150 active:scale-95 ${editor?.isActive('bulletList')
+                      ? darkMode ? 'bg-blue-600 text-white' : 'bg-blue-500 text-white'
+                      : darkMode ? 'hover:bg-gray-700 text-gray-400' : 'hover:bg-gray-200 text-gray-600'
+                      }`}
+                  >
+                    <List size={16} />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Bullet list</p>
+                </TooltipContent>
+              </Tooltip>
+
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    aria-label="Numbered list"
+                    aria-pressed={editor?.isActive('orderedList')}
+                    onClick={() => editor?.chain().focus().toggleOrderedList().run()}
+                    className={`w-9 h-9 flex items-center justify-center rounded-2xl transition-all duration-150 active:scale-95 ${editor?.isActive('orderedList')
+                      ? darkMode ? 'bg-blue-600 text-white' : 'bg-blue-500 text-white'
+                      : darkMode ? 'hover:bg-gray-700 text-gray-400' : 'hover:bg-gray-200 text-gray-600'
+                      }`}
+                  >
+                    <ListOrdered size={16} />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Numbered list</p>
+                </TooltipContent>
+              </Tooltip>
             </div>
 
-            {/* Font Size Control */}
-            <div className={`flex items-center gap-1.5 px-2 py-1 rounded-2xl md:shrink-0 shadow-inner ${darkMode ? 'bg-gray-800/60' : 'bg-white'
+            {/* Font size dropdown — selection scoped (mobile / tablet) */}
+            <div className={`flex lg:hidden items-center gap-1 px-1.5 py-1 rounded-2xl md:shrink-0 shadow-inner ${darkMode ? 'bg-gray-800/60' : 'bg-white'
               }`}>
-              <Tooltip>
-                <TooltipTrigger asChild>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
                   <button
-                    onClick={() => handleFontSizeChange(-1)}
-                    className={`w-8 h-8 flex items-center justify-center rounded-2xl text-sm transition-all active:scale-95 ${darkMode ? 'hover:bg-gray-700 text-gray-400' : 'hover:bg-gray-200 text-gray-600'
-                      }`}
+                    type="button"
+                    className={`h-9 px-2.5 flex items-center gap-1 rounded-2xl text-sm font-medium transition-all ${
+                      darkMode ? 'hover:bg-gray-700 text-gray-300' : 'hover:bg-gray-200 text-gray-700'
+                    }`}
+                    aria-label="Font size"
                   >
-                    −
+                    <span>{activeFontSize.value ? activeFontSize.label : 'Size'}</span>
+                    <ChevronDown size={14} className="opacity-60" />
                   </button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Decrease font size</p>
-                </TooltipContent>
-              </Tooltip>
-
-              <span className={`w-10 h-8 flex items-center justify-center text-sm font-medium rounded-md ${darkMode ? 'text-gray-300' : 'text-gray-700'
-                }`}>
-                {globalFontSize}
-              </span>
-
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    onClick={() => handleFontSizeChange(1)}
-                    className={`w-8 h-8 flex items-center justify-center rounded-2xl text-sm transition-all active:scale-95 ${darkMode ? 'hover:bg-gray-700 text-gray-400' : 'hover:bg-gray-200 text-gray-600'
-                      }`}
-                  >
-                    +
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Increase font size</p>
-                </TooltipContent>
-              </Tooltip>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent
+                  align="start"
+                  className={`w-36 ${darkMode ? 'bg-[#111111] border-gray-700 text-gray-100' : 'bg-white border-gray-200'}`}
+                >
+                  {FONT_SIZES.map((size) => {
+                    const selected = activeFontSize.value === size.value;
+                    return (
+                      <DropdownMenuItem
+                        key={size.label}
+                        onClick={() => {
+                          if (!size.value) {
+                            editor?.chain().focus().unsetFontSize().run();
+                          } else {
+                            editor?.chain().focus().setFontSize(size.value).run();
+                          }
+                        }}
+                        className={`flex items-center justify-between gap-2 ${darkMode ? 'focus:bg-gray-800' : ''}`}
+                      >
+                        <span>{size.label}</span>
+                        {selected && <Check size={14} className="text-blue-500" />}
+                      </DropdownMenuItem>
+                    );
+                  })}
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
 
-            {/* Color Picker */}
-            <div className="relative md:shrink-0" ref={colorPickerRef}>
+            {/* Color Picker — mobile/tablet; desktop has its own in rich toolbar */}
+            <div className="relative md:shrink-0 lg:hidden" ref={colorPickerRef}>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <button
@@ -552,7 +566,7 @@ const FormattingToolbar = ({
                   >
                     <div
                       className="w-5 h-5 rounded-full border border-gray-300 dark:border-gray-500 shadow-sm transition-transform hover:scale-110"
-                      style={{ backgroundColor: globalTextColor }}
+                      style={{ backgroundColor: activeColor }}
                     />
                   </button>
                 </TooltipTrigger>
@@ -570,12 +584,12 @@ const FormattingToolbar = ({
                     <button
                       key={index}
                       onClick={() => {
-                        setGlobalTextColor(color.value);
+                        editor?.chain().focus().setColor(color.value).run();
                         setIsColorPickerOpen(false);
                       }}
                       title={color.name}
                       className={`w-6 h-6 rounded-full border transition-all duration-150 hover:scale-110 active:scale-95 ${
-                        globalTextColor === color.value 
+                        activeColor === color.value 
                           ? (darkMode ? 'border-white ring-2 ring-blue-500' : 'border-gray-900 ring-2 ring-blue-400') 
                           : (darkMode ? 'border-gray-600' : 'border-gray-300')
                       }`}
@@ -661,156 +675,6 @@ const FormattingToolbar = ({
               </button>
             </div>
           )}
-          {/* Action Icons - Desktop (after toolbar) */}
-          <div className="hidden md:flex justify-end px-3 pb-2">
-            <div
-              className={`flex items-center gap-1 p-1.5 rounded-2xl shadow-sm ${darkMode ? 'bg-[#111111]' : 'bg-gray-100'
-                }`}
-            >
-
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    onClick={() => setIsSearchOpen(prev => !prev)}
-                    className={`w-9 h-9 flex items-center justify-center rounded-xl transition-all duration-150 active:scale-95 ${darkMode
-                      ? 'hover:bg-gray-800 text-gray-300'
-                      : 'hover:bg-white text-gray-700'
-                      }`}
-                  >
-                    <Search size={18} />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Search</p>
-                </TooltipContent>
-              </Tooltip>
-
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    className={`w-9 h-9 flex items-center justify-center rounded-xl transition-all duration-150 active:scale-95 ${isFullscreen
-                      ? darkMode
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-blue-500 text-white'
-                      : darkMode
-                        ? 'hover:bg-gray-800 text-gray-300'
-                        : 'hover:bg-white text-gray-700'
-                      }`}
-                    onClick={() => setIsFullscreen(!isFullscreen)}
-                  >
-                    <Fullscreen size={18} />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>{isFullscreen ? "Exit Fullscreen" : "Fullscreen"}</p>
-                </TooltipContent>
-              </Tooltip>
-
-              <div className="relative" ref={settingsRef}>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button
-                      onClick={() => setIsSettingsOpen(prev => !prev)}
-                      className={`w-9 h-9 flex items-center justify-center rounded-xl transition-all duration-150 active:scale-95 ${darkMode
-                        ? 'hover:bg-gray-800 text-gray-300'
-                        : 'hover:bg-white text-gray-700'
-                        }`}
-                    >
-                      <Settings size={18} />
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Settings</p>
-                  </TooltipContent>
-                </Tooltip>
-
-                {isSettingsOpen && (
-                  <div className={`absolute right-0 mt-2 w-48 rounded-xl shadow-lg border z-50 py-1 ${darkMode
-                    ? 'bg-[#111111] border-gray-700'
-                    : 'bg-white border-gray-200'
-                    }`}>
-                    {/* Set Password Option */}
-                    <button
-                      onClick={() => {
-                        setIsSettingsOpen(false);
-                        onSetPassword(currentNote.id);
-                      }}
-                      className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors ${darkMode
-                        ? 'hover:bg-gray-800 text-gray-200'
-                        : 'hover:bg-gray-100 text-gray-700'
-                        }`}
-                    >
-                      <Lock size={16} className="text-blue-500" />
-                      <span>Set Password</span>
-                    </button>
-
-                    {/* Lock Note Option - only show if password is already set */}
-                    {lastPassword && !currentNote.passwordProtected && (
-                      <button
-                        onClick={() => {
-                          setIsSettingsOpen(false);
-                          onLockNote(currentNote.id);
-                        }}
-                        className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors ${darkMode
-                          ? 'hover:bg-gray-800 text-gray-200'
-                          : 'hover:bg-gray-100 text-gray-700'
-                          }`}
-                      >
-                        <Lock size={16} className="text-yellow-500" />
-                        <span>Lock Note Now</span>
-                      </button>
-                    )}
-
-                    {/* Remove Password Option - only show if encrypted content exists */}
-                    {currentNote.encryptedContent && (
-                      <>
-                        <div className={`h-px my-1 ${darkMode ? 'bg-gray-800' : 'bg-gray-200'}`} />
-                        <button
-                          onClick={() => {
-                            setIsSettingsOpen(false);
-                            onRemovePassword(currentNote.id);
-                          }}
-                          className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors ${darkMode
-                            ? 'hover:bg-gray-800 text-red-400'
-                            : 'hover:bg-gray-100 text-red-600'
-                            }`}
-                        >
-                          <ShieldOff size={16} />
-                          <span>Remove Password</span>
-                        </button>
-                      </>
-                    )}
-
-                    {/* Divider */}
-                    <div className={`h-px my-1 ${darkMode ? 'bg-gray-800' : 'bg-gray-200'}`} />
-
-                    {/* Delete Note - ALWAYS visible on desktop */}
-                    <button
-                      onClick={() => {
-                        setIsSettingsOpen(false);
-                        const event = new KeyboardEvent('keydown', {
-                          key: 'Delete',
-                          ctrlKey: true,
-                          code: 'Delete'
-                        });
-                        window.dispatchEvent(event);
-                      }}
-                      className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors ${darkMode
-                        ? 'hover:bg-gray-800 text-red-400'
-                        : 'hover:bg-gray-100 text-red-600'
-                        }`}
-                    >
-                      <Trash2 size={16} />
-                      <span>Delete Note</span>
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Bottom Row - Formatting Tools (All in Single Div) */}
       </div>
       <AudioRecorder
         isOpen={isAudioRecorderOpen}

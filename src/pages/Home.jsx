@@ -119,7 +119,7 @@ relative z-20 w-full max-w-7xl mx-auto">
               : 'text-blue-700 bg-blue-50 border-blue-200'
           }`}>
             <span className="w-2 h-2 bg-blue-600 rounded animate-pulse"></span>
-            Version · 4.0
+            Version · 5.0
           </div>
           <h1 className={`text-4xl md:text-6xl font-extrabold leading-tight mb-6 tracking-tight ${
             darkMode ? 'text-white' : 'text-gray-900'
@@ -210,8 +210,8 @@ relative z-20 w-full max-w-7xl mx-auto">
                   : 'bg-gray-900 text-green-400'
               }`}>
                 <p>• Morning thoughts</p>
-                <p className="ml-4">- Goals for today</p>
-                <p className="ml-4">- Tasks to complete</p>
+                <p className="ml-4">1. Goals for today</p>
+                <p className="ml-4">2. Tasks to complete</p>
                 <p className={`ml-4 ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>// Stay consistent</p>
               </div>
             </div>

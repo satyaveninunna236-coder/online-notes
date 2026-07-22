@@ -3,7 +3,7 @@ import { Search, Plus, MessageSquare, ArrowUp, ArrowDown, CornerDownLeft, X } fr
 import { useDebounce } from '../hooks/useDebounce';
 import { useFuzzySearch } from '../hooks/useFuzzySearch';
 
-const CommandPalette = ({ isOpen, onClose, darkMode, notes = [], onSelectNote }) => {
+const CommandPalette = ({ isOpen, onClose, darkMode, notes = [], onSelectNote, onNewNote }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const debouncedSearch = useDebounce(searchQuery, 300);
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -48,7 +48,7 @@ const CommandPalette = ({ isOpen, onClose, darkMode, notes = [], onSelectNote })
       } else if (e.key === 'Enter') {
         e.preventDefault();
         if (selectedIndex === 0) {
-          // You could fire an onNewNote event here if passed
+          if (onNewNote) onNewNote(searchQuery);
           onClose();
         } else {
           const selectedNote = displayNotes[selectedIndex - 1];
@@ -94,10 +94,22 @@ const CommandPalette = ({ isOpen, onClose, darkMode, notes = [], onSelectNote })
             type="text"
             className="flex-1 bg-transparent border-none outline-none text-lg placeholder:text-neutral-500"
             style={{ color: textPrimary }}
-            placeholder="Search pages, actions, and more..."
+            placeholder="Search notes by title or content..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
+          {searchQuery && (
+            <button 
+              onClick={() => {
+                setSearchQuery('');
+                inputRef.current?.focus();
+              }}
+              className="p-1 rounded-full hover:bg-black/10 dark:hover:bg-white/10 transition-colors ml-2 flex-shrink-0"
+              title="Clear search"
+            >
+              <X size={16} style={{ color: textSecondary }} />
+            </button>
+          )}
         </div>
 
         <div className="max-h-[60vh] overflow-y-auto overflow-x-hidden p-2 scrollbar-thin">
@@ -113,11 +125,16 @@ const CommandPalette = ({ isOpen, onClose, darkMode, notes = [], onSelectNote })
               className="flex items-center px-3 py-3 rounded-lg cursor-pointer transition-colors"
               style={selectedIndex === 0 ? { backgroundColor: bgHover } : {}}
               onMouseEnter={() => setSelectedIndex(0)}
-              onClick={onClose}
+              onClick={() => {
+                if (onNewNote) onNewNote(searchQuery);
+                onClose();
+              }}
             >
               <Plus size={18} style={{ color: textSecondary }} className="mr-4 flex-shrink-0" />
               <div>
-                <div className="text-sm font-medium" style={{ color: textPrimary }}>New Chat</div>
+                <div className="text-sm font-medium" style={{ color: textPrimary }}>
+                  {searchQuery.trim() && displayNotes.length === 0 ? `New Chat with "${searchQuery.trim()}"` : 'New Chat'}
+                </div>
                 <div className="text-xs mt-0.5" style={{ color: textSecondary }}>Start a new conversation</div>
               </div>
             </div>
@@ -131,7 +148,7 @@ const CommandPalette = ({ isOpen, onClose, darkMode, notes = [], onSelectNote })
             
             <div className="flex flex-col gap-1">
               {displayNotes.length === 0 ? (
-                <div className="px-3 py-3 text-sm" style={{ color: textMuted }}>
+                <div className="px-3 py-8 text-sm text-center" style={{ color: textMuted }}>
                   No results found for "{searchQuery}"
                 </div>
               ) : (

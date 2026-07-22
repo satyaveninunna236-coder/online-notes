@@ -16,6 +16,7 @@ import {
   Check,
   List,
   ListOrdered,
+  Palette,
 } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import {
@@ -77,15 +78,12 @@ function ToolbarBtn({
           aria-pressed={!!active}
           disabled={disabled}
           onClick={onClick}
-          className={`w-9 h-9 flex items-center justify-center rounded-2xl transition-all duration-150 active:scale-95 disabled:opacity-40 disabled:pointer-events-none ${
-            active
-              ? darkMode
-                ? 'bg-blue-600 text-white'
-                : 'bg-blue-500 text-white'
+          className={`w-9 h-9 flex items-center justify-center rounded-2xl transition-all duration-150 active:scale-95 disabled:opacity-40 disabled:pointer-events-none ${active
+              ? 'bg-blue-600 text-white'
               : darkMode
-                ? 'hover:bg-white-700 text-white-400'
-                : 'hover:bg-white-200 text-white-600'
-          } ${className}`}
+                ? 'hover:bg-gray-700 text-gray-400'
+                : 'hover:bg-gray-200 text-gray-600'
+            } ${className}`}
         >
           {children}
         </button>
@@ -100,9 +98,8 @@ function ToolbarBtn({
 function Group({ darkMode, children, className = '' }) {
   return (
     <div
-      className={`flex items-center gap-1 p-1.5 rounded-xl shadow-inner ${
-        darkMode ? 'bg-gray-800/60' : 'bg-white'
-      } ${className}`}
+      className={`flex items-center gap-1 p-1.5 rounded-xl shadow-inner ${darkMode ? 'bg-gray-800/60' : 'bg-white'
+        } ${className}`}
     >
       {children}
     </div>
@@ -112,9 +109,8 @@ function Group({ darkMode, children, className = '' }) {
 function Separator({ darkMode }) {
   return (
     <div
-      className={`hidden xl:block w-px h-7 mx-0.5 ${
-        darkMode ? 'bg-gray-700' : 'bg-gray-300'
-      }`}
+      className={`hidden xl:block w-px h-7 mx-0.5 ${darkMode ? 'bg-gray-700' : 'bg-gray-300'
+        }`}
       aria-hidden
     />
   );
@@ -240,11 +236,10 @@ const DesktopRichToolbar = ({ editor, darkMode, rightSlot }) => {
   const canUndo = editor.can().undo();
   const canRedo = editor.can().redo();
 
-  const triggerClass = `h-9 px-2.5 flex items-center gap-1.5 rounded-2xl text-sm font-medium transition-all duration-150 active:scale-95 ${
-    darkMode
+  const triggerClass = `h-9 px-2.5 flex items-center gap-1.5 rounded-2xl text-sm font-medium transition-all duration-150 active:scale-95 ${darkMode
       ? 'hover:bg-gray-700 text-gray-300'
       : 'hover:bg-gray-200 text-gray-700'
-  }`;
+    }`;
 
   const menuContentClass = darkMode
     ? 'bg-[#111111] border-gray-700 text-gray-100'
@@ -300,9 +295,8 @@ const DesktopRichToolbar = ({ editor, darkMode, rightSlot }) => {
                       editor.chain().focus().toggleHeading({ level: opt.level }).run();
                     }
                   }}
-                  className={`flex items-center justify-between gap-2 ${
-                    darkMode ? 'focus:bg-gray-800' : ''
-                  }`}
+                  className={`flex items-center justify-between gap-2 ${darkMode ? 'focus:bg-gray-800' : ''
+                    }`}
                 >
                   <span
                     className={
@@ -354,9 +348,8 @@ const DesktopRichToolbar = ({ editor, darkMode, rightSlot }) => {
                       editor.chain().focus().setFontFamily(font.value).run();
                     }
                   }}
-                  className={`flex items-center justify-between gap-2 ${
-                    darkMode ? 'focus:bg-gray-800' : ''
-                  }`}
+                  className={`flex items-center justify-between gap-2 ${darkMode ? 'focus:bg-gray-800' : ''
+                    }`}
                   style={{ fontFamily: font.value || undefined }}
                 >
                   <span>{font.label}</span>
@@ -392,9 +385,8 @@ const DesktopRichToolbar = ({ editor, darkMode, rightSlot }) => {
                       editor.chain().focus().setFontSize(size.value).run();
                     }
                   }}
-                  className={`flex items-center justify-between gap-2 ${
-                    darkMode ? 'focus:bg-gray-800' : ''
-                  }`}
+                  className={`flex items-center justify-between gap-2 ${darkMode ? 'focus:bg-gray-800' : ''
+                    }`}
                 >
                   <span style={{ fontSize: size.value || '14px' }}>{size.label}</span>
                   {selected && <Check size={14} className="text-blue-500" />}
@@ -478,25 +470,11 @@ const DesktopRichToolbar = ({ editor, darkMode, rightSlot }) => {
             <button
               type="button"
               aria-label="Text color"
-              className={`w-9 h-9 flex items-center justify-center rounded-2xl transition-all duration-150 active:scale-95 ${
-                darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-200'
-              }`}
+              className={`w-9 h-9 flex items-center justify-center rounded-2xl transition-all duration-150 active:scale-95 ${darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-200'
+                }`}
             >
               <div className="flex flex-col items-center gap-0.5">
-                <span
-                  className={`text-xs font-bold leading-none ${
-                    darkMode ? 'text-gray-300' : 'text-gray-700'
-                  }`}
-                >
-                  A
-                </span>
-                <div
-                  className="w-4 h-1 rounded-full"
-                  style={{
-                    backgroundColor:
-                      activeColor || (darkMode ? '#ffffff' : '#000000'),
-                  }}
-                />
+                <Palette size={16} className={darkMode ? 'text-gray-300' : 'text-gray-700'} />
               </div>
             </button>
           </PopoverTrigger>
@@ -505,9 +483,8 @@ const DesktopRichToolbar = ({ editor, darkMode, rightSlot }) => {
             className={`w-52 p-2 ${menuContentClass} border`}
           >
             <p
-              className={`text-xs font-medium mb-2 px-1 ${
-                darkMode ? 'text-gray-400' : 'text-gray-500'
-              }`}
+              className={`text-xs font-medium mb-2 px-1 ${darkMode ? 'text-gray-400' : 'text-gray-500'
+                }`}
             >
               Text color
             </p>
@@ -529,13 +506,12 @@ const DesktopRichToolbar = ({ editor, darkMode, rightSlot }) => {
                         editor.chain().focus().setColor(color.value).run();
                       }
                     }}
-                    className={`w-7 h-7 rounded-full border transition-all hover:scale-110 ${
-                      isActive
+                    className={`w-7 h-7 rounded-full border transition-all hover:scale-110 flex items-center justify-center ${isActive
                         ? 'ring-2 ring-blue-500 border-transparent'
                         : darkMode
                           ? 'border-gray-600'
                           : 'border-gray-300'
-                    }`}
+                      }`}
                     style={{
                       backgroundColor:
                         color.value || (darkMode ? '#1a1a1a' : '#ffffff'),
@@ -543,7 +519,9 @@ const DesktopRichToolbar = ({ editor, darkMode, rightSlot }) => {
                         ? 'linear-gradient(135deg, transparent 45%, #ef4444 45%, #ef4444 55%, transparent 55%)'
                         : undefined,
                     }}
-                  />
+                  >
+                    {isActive && color.value && <Check size={12} className={color.value === '#ffffff' ? 'text-black' : 'text-white'} />}
+                  </button>
                 );
               })}
             </div>
@@ -577,15 +555,12 @@ const DesktopRichToolbar = ({ editor, darkMode, rightSlot }) => {
               type="button"
               aria-label={isLinkActive ? 'Edit link' : 'Insert link'}
               aria-pressed={isLinkActive}
-              className={`w-9 h-9 flex items-center justify-center rounded-2xl transition-all duration-150 active:scale-95 ${
-                isLinkActive
-                  ? darkMode
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-blue-500 text-white'
+              className={`w-9 h-9 flex items-center justify-center rounded-2xl transition-all duration-150 active:scale-95 ${isLinkActive
+                  ? 'bg-blue-600 text-white'
                   : darkMode
                     ? 'hover:bg-gray-700 text-gray-400'
                     : 'hover:bg-gray-200 text-gray-600'
-              }`}
+                }`}
             >
               <LinkIcon size={16} />
             </button>
@@ -596,9 +571,8 @@ const DesktopRichToolbar = ({ editor, darkMode, rightSlot }) => {
             onOpenAutoFocus={(e) => e.preventDefault()}
           >
             <p
-              className={`text-xs font-medium mb-2 ${
-                darkMode ? 'text-gray-400' : 'text-gray-500'
-              }`}
+              className={`text-xs font-medium mb-2 ${darkMode ? 'text-gray-400' : 'text-gray-500'
+                }`}
             >
               {isLinkActive ? 'Edit link' : 'Insert link'}
             </p>
@@ -616,11 +590,10 @@ const DesktopRichToolbar = ({ editor, darkMode, rightSlot }) => {
                 }
               }}
               placeholder="https://example.com"
-              className={`w-full px-3 py-2 rounded-lg border text-sm outline-none focus:ring-2 focus:ring-blue-500 ${
-                darkMode
+              className={`w-full px-3 py-2 rounded-lg border text-sm outline-none focus:ring-2 focus:ring-blue-500 ${darkMode
                   ? 'bg-gray-900 border-gray-700 text-white placeholder-gray-500'
                   : 'bg-white border-gray-300 text-gray-900 placeholder-gray-400'
-              }`}
+                }`}
               autoFocus
             />
             {linkError && (
@@ -628,9 +601,8 @@ const DesktopRichToolbar = ({ editor, darkMode, rightSlot }) => {
             )}
             {isLinkActive && currentLinkHref && (
               <p
-                className={`mt-1.5 text-xs truncate ${
-                  darkMode ? 'text-blue-400' : 'text-blue-600'
-                }`}
+                className={`mt-1.5 text-xs truncate ${darkMode ? 'text-blue-500' : 'text-blue-600'
+                  }`}
                 title={currentLinkHref}
               >
                 Active: {currentLinkHref}
@@ -650,11 +622,10 @@ const DesktopRichToolbar = ({ editor, darkMode, rightSlot }) => {
                     type="button"
                     aria-label="Open link"
                     onClick={openLink}
-                    className={`p-1.5 rounded-lg ${
-                      darkMode
+                    className={`p-1.5 rounded-lg ${darkMode
                         ? 'hover:bg-gray-800 text-gray-300'
                         : 'hover:bg-gray-100 text-gray-600'
-                    }`}
+                      }`}
                   >
                     <ExternalLink size={16} />
                   </button>
@@ -662,11 +633,10 @@ const DesktopRichToolbar = ({ editor, darkMode, rightSlot }) => {
                     type="button"
                     aria-label="Remove link"
                     onClick={removeLink}
-                    className={`p-1.5 rounded-lg ${
-                      darkMode
+                    className={`p-1.5 rounded-lg ${darkMode
                         ? 'hover:bg-gray-800 text-red-400'
                         : 'hover:bg-gray-100 text-red-600'
-                    }`}
+                      }`}
                   >
                     <Unlink size={16} />
                   </button>

@@ -93,3 +93,22 @@
   margin: 0.5em 0;
   opacity: 0.9;
 }
+
+/* Search Highlights */
+.search-result {
+  background-color: rgba(253, 224, 71, 0.4); /* Yellow-300 with transparency */
+  border-radius: 2px;
+}
+.dark .search-result {
+  background-color: rgba(161, 98, 7, 0.5); /* Yellow-700 with transparency */
+}
+
+.search-result-active {
+  background-color: #f59e0b; /* Amber-500 */
+  color: #fff;
+  border-radius: 2px;
+}
+.dark .search-result-active {
+  background-color: #f59e0b;
+  color: #111;
+}

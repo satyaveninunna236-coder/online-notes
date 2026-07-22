@@ -145,11 +145,13 @@ const AppleNotes = () => {
     };
   }, [isResizing]);
 
-  const addNote = () => {
+  const addNote = (customTitle) => {
+    const titleText = typeof customTitle === 'string' && customTitle.trim() ? customTitle.trim() : 'New Note';
+    const bodyHtml = titleText !== 'New Note' ? `<h1>${titleText}</h1><p></p>` : '';
     const newNote = {
       id: Date.now(),
-      title: 'New Note',
-      content: '',
+      title: titleText,
+      content: `${titleText}\n${bodyHtml}`,
       images: [],
       timestamp: new Date(), // For backward compatibility
       createdAt: new Date(),
@@ -536,7 +538,7 @@ const AppleNotes = () => {
                   />
 
                   <div className="flex-1 overflow-y-auto">
-                    <div className="w-full h-full p-6 max-w-4xl lg:max-w-6xl xl:max-w-7xl mx-auto">
+                    <div className="w-full h-full px-6 pb-6 pt-2 max-w-4xl lg:max-w-6xl xl:max-w-7xl mx-auto">
                       <ImagesGrid
                         currentNote={currentNote}
                         notes={notes}
@@ -719,12 +721,13 @@ const AppleNotes = () => {
       </AlertDialog>
 
       {/* Command Palette */}
-      <CommandPalette 
-        isOpen={isCommandPaletteOpen} 
-        onClose={() => setIsCommandPaletteOpen(false)} 
+      <CommandPalette
+        isOpen={isCommandPaletteOpen}
+        onClose={() => setIsCommandPaletteOpen(false)}
         darkMode={darkMode}
         notes={notes}
         onSelectNote={setActiveNote}
+        onNewNote={addNote}
       />
     </div>
   );

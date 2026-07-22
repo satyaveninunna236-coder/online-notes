@@ -9,6 +9,7 @@ import {
   joinNoteContent,
   splitNoteContent,
 } from '@/lib/noteContent';
+import { SearchExtension } from '@/lib/SearchExtension';
 
 const createExtensions = () => [
   StarterKit.configure({
@@ -30,6 +31,7 @@ const createExtensions = () => [
   Placeholder.configure({
     placeholder: 'Start typing...',
   }),
+  SearchExtension,
 ];
 
 function formatNoteTime(note) {
@@ -241,7 +243,7 @@ const TextEditor = ({
 
   return (
     <div className="flex flex-col w-full h-full gap-1">
-      <div className="px-4 pt-1">
+      <div className="px-4">
         <input
           ref={titleRef}
           type="text"

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Bold, Italic, Underline, Menu, Lock, Search, ChevronUp, ChevronDown, Fullscreen, ShieldOff, Trash2, Mic, MoreVertical, Check, List, ListOrdered } from 'lucide-react';
+import { Bold, Italic, Underline, Menu, Lock, Search, ChevronUp, ChevronDown, Fullscreen, ShieldOff, Trash2, Mic, MoreVertical, Check, List, ListOrdered, Palette } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   DropdownMenu,
@@ -7,7 +7,12 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubTrigger,
+  DropdownMenuSubContent,
+  DropdownMenuPortal,
 } from '@/components/ui/dropdown-menu';
+import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import AudioRecorder from './AudioRecorder';
 import DesktopRichToolbar from './DesktopRichToolbar';
 import { findTextMatchesInEditor, FONT_SIZES } from '@/lib/noteContent';
@@ -30,8 +35,9 @@ const FormattingToolbar = ({
   const [isColorPickerOpen, setIsColorPickerOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [currentMatchIndex, setCurrentMatchIndex] = useState(0);
-  const [totalMatches, setTotalMatches] = useState(0);
+  const searchStorage = editor?.storage.search || { results: [], currentIndex: 0 };
+  const totalMatches = searchStorage.results.length;
+  const currentMatchIndex = searchStorage.currentIndex;
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const settingsRef = useRef(null);
   const mobileSettingsRef = useRef(null);
@@ -51,14 +57,17 @@ const FormattingToolbar = ({
     };
   }, [editor]);
 
-  const selectMatchWithoutFocusSteal = useCallback((match) => {
-    if (!editor || !match) return;
-    editor.commands.setTextSelection({ from: match.from, to: match.to });
-    requestAnimationFrame(() => {
-      try { editor.view.dispatch(editor.view.state.tr.scrollIntoView()); } catch (_) { /* */ }
-      searchInputRef.current?.focus();
-    });
-  }, [editor]);
+  // Scroll to active match when it changes
+  useEffect(() => {
+    if (totalMatches > 0 && isSearchOpen) {
+      requestAnimationFrame(() => {
+        const activeHighlight = document.querySelector('.search-result-active');
+        if (activeHighlight) {
+          activeHighlight.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      });
+    }
+  }, [currentMatchIndex, totalMatches, isSearchOpen]);
 
   const PRESET_COLORS = [
     { name: 'Default', value: darkMode ? '#ffffff' : '#000000' },
@@ -83,7 +92,7 @@ const FormattingToolbar = ({
   const menuPanelClass = `w-52 ${darkMode ? 'bg-[#111111] border-gray-700' : 'bg-white border-gray-200'
     }`;
 
-  const renderSettingsMenuItems = (includeDelete) => (
+  const renderSettingsMenuItems = (includeDelete, includeFullscreen = true) => (
     <>
       <DropdownMenuItem
         onClick={() => {
@@ -95,17 +104,21 @@ const FormattingToolbar = ({
         <span>Search in note</span>
       </DropdownMenuItem>
 
-      <DropdownMenuItem
-        onClick={() => {
-          setIsFullscreen(!isFullscreen);
-        }}
-        className="cursor-pointer"
-      >
-        <Fullscreen className={`mr-2 ${isFullscreen ? 'text-blue-500' : 'text-gray-500'}`} size={16} />
-        <span>{isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}</span>
-      </DropdownMenuItem>
+      {includeFullscreen && (
+        <>
+          <DropdownMenuItem
+            onClick={() => {
+              setIsFullscreen(!isFullscreen);
+            }}
+            className="cursor-pointer"
+          >
+            <Fullscreen className={`mr-2 ${isFullscreen ? 'text-blue-500' : 'text-gray-500'}`} size={16} />
+            <span>{isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}</span>
+          </DropdownMenuItem>
 
-      <div className={`h-px my-1 ${darkMode ? 'bg-gray-800' : 'bg-gray-200'}`} />
+          <div className={`h-px my-1 ${darkMode ? 'bg-gray-800' : 'bg-gray-200'}`} />
+        </>
+      )}
 
       <DropdownMenuItem
         onClick={() => {
@@ -161,6 +174,7 @@ const FormattingToolbar = ({
           </DropdownMenuItem>
         </>
       )}
+
     </>
   );
 
@@ -172,43 +186,19 @@ const FormattingToolbar = ({
 
   const handleSearch = (value) => {
     setSearchQuery(value);
-
-    if (!value.trim()) {
-      setTotalMatches(0);
-      setCurrentMatchIndex(0);
-      return;
-    }
-
-    if (!editor) {
-      setTotalMatches(0);
-      setCurrentMatchIndex(0);
-      return;
-    }
-
-    const matches = findTextMatchesInEditor(editor, value.trim());
-    setTotalMatches(matches.length);
-    setCurrentMatchIndex(0);
-    if (matches.length > 0) {
-      selectMatchWithoutFocusSteal(matches[0]);
+    if (editor) {
+      editor.commands.setSearchTerm(value.trim());
     }
   };
 
   const navigateMatch = useCallback((direction) => {
-    if (!searchQuery.trim() || totalMatches === 0 || !editor) return;
-
-    const matches = findTextMatchesInEditor(editor, searchQuery.trim());
-    if (!matches.length) {
-      setTotalMatches(0);
-      return;
+    if (!editor || totalMatches === 0) return;
+    if (direction === 1) {
+      editor.commands.nextMatch();
+    } else {
+      editor.commands.prevMatch();
     }
-
-    let newIndex = currentMatchIndex + direction;
-    if (newIndex < 0) newIndex = matches.length - 1;
-    if (newIndex >= matches.length) newIndex = 0;
-    setCurrentMatchIndex(newIndex);
-    setTotalMatches(matches.length);
-    selectMatchWithoutFocusSteal(matches[newIndex]);
-  }, [searchQuery, totalMatches, editor, currentMatchIndex, selectMatchWithoutFocusSteal]);
+  }, [editor, totalMatches]);
 
   const handleInsertText = (text) => {
     if (contentRef?.current?.insertText) {
@@ -223,9 +213,10 @@ const FormattingToolbar = ({
 
   useEffect(() => {
     setSearchQuery('');
-    setCurrentMatchIndex(0);
-    setTotalMatches(0);
-  }, [currentNote.id]);
+    if (editor) {
+      editor.commands.clearSearch();
+    }
+  }, [currentNote.id, editor]);
 
   useEffect(() => {
     if (!isSearchOpen) return;
@@ -233,6 +224,8 @@ const FormattingToolbar = ({
     const handleKeyDown = (e) => {
       if (e.key === 'Escape') {
         setIsSearchOpen(false);
+        setSearchQuery('');
+        if (editor) editor.commands.clearSearch();
         return;
       }
 
@@ -338,11 +331,10 @@ const FormattingToolbar = ({
                   <TooltipTrigger asChild>
                     <DropdownMenuTrigger asChild>
                       <button
-                        className={`w-9 h-9 flex items-center justify-center rounded-xl transition-all duration-150 active:scale-95 ${
-                          isSettingsOpen
+                        className={`w-9 h-9 flex items-center justify-center rounded-xl transition-all duration-150 active:scale-95 ${isSettingsOpen
                             ? darkMode ? 'bg-gray-700 text-white' : 'bg-gray-200 text-gray-900'
                             : darkMode ? 'hover:bg-gray-800 text-gray-300' : 'hover:bg-white text-gray-700'
-                        }`}
+                          }`}
                         aria-label="More options"
                       >
                         <MoreVertical size={18} />
@@ -355,7 +347,7 @@ const FormattingToolbar = ({
                 </Tooltip>
 
                 <DropdownMenuContent align="end" sideOffset={8} className={menuPanelClass}>
-                  {renderSettingsMenuItems(false)}
+                  {renderSettingsMenuItems(false, false)}
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
@@ -378,7 +370,7 @@ const FormattingToolbar = ({
                       className={`w-9 h-9 flex items-center justify-center rounded-2xl transition-all duration-150 active:scale-95 ${isAudioRecorderOpen
                         ? darkMode ? 'bg-red-600 text-white' : 'bg-red-500 text-white'
                         : darkMode ? 'hover:bg-gray-700 text-gray-400' : 'hover:bg-gray-200 text-gray-600'
-                      }`}
+                        }`}
                     >
                       <Mic size={18} />
                     </button>
@@ -393,11 +385,10 @@ const FormattingToolbar = ({
                         <button
                           type="button"
                           aria-label="More options"
-                          className={`w-9 h-9 flex items-center justify-center rounded-2xl transition-all duration-150 active:scale-95 ${
-                            isSettingsOpen
+                          className={`w-9 h-9 flex items-center justify-center rounded-2xl transition-all duration-150 active:scale-95 ${isSettingsOpen
                               ? darkMode ? 'bg-gray-700 text-white' : 'bg-gray-200 text-gray-900'
                               : darkMode ? 'hover:bg-gray-700 text-gray-400' : 'hover:bg-gray-200 text-gray-600'
-                          }`}
+                            }`}
                         >
                           <MoreVertical size={16} />
                         </button>
@@ -406,7 +397,7 @@ const FormattingToolbar = ({
                     <TooltipContent><p>More options</p></TooltipContent>
                   </Tooltip>
                   <DropdownMenuContent align="end" sideOffset={8} className={menuPanelClass}>
-                    {renderSettingsMenuItems(true)}
+                    {renderSettingsMenuItems(true, true)}
                   </DropdownMenuContent>
                 </DropdownMenu>
               </>
@@ -424,7 +415,7 @@ const FormattingToolbar = ({
                   aria-pressed={isBold}
                   onClick={() => editor?.chain().focus().toggleBold().run()}
                   className={`w-9 h-9 flex items-center justify-center rounded-2xl transition-all duration-150 active:scale-95 ${isBold
-                    ? darkMode ? 'bg-blue-600 text-white' : 'bg-blue-500 text-white'
+                    ? 'bg-blue-600 text-white'
                     : darkMode ? 'hover:bg-gray-700 text-gray-400' : 'hover:bg-gray-200 text-gray-600'
                     }`}
                 >
@@ -444,7 +435,7 @@ const FormattingToolbar = ({
                   aria-pressed={isItalic}
                   onClick={() => editor?.chain().focus().toggleItalic().run()}
                   className={`w-9 h-9 flex items-center justify-center rounded-2xl transition-all duration-150 active:scale-95 ${isItalic
-                    ? darkMode ? 'bg-blue-600 text-white' : 'bg-blue-500 text-white'
+                    ? 'bg-blue-600 text-white'
                     : darkMode ? 'hover:bg-gray-700 text-gray-400' : 'hover:bg-gray-200 text-gray-600'
                     }`}
                 >
@@ -464,7 +455,7 @@ const FormattingToolbar = ({
                   aria-pressed={isUnderline}
                   onClick={() => editor?.chain().focus().toggleUnderline().run()}
                   className={`w-9 h-9 flex items-center justify-center rounded-2xl transition-all duration-150 active:scale-95 ${isUnderline
-                    ? darkMode ? 'bg-blue-600 text-white ' : 'bg-blue-500 text-white  '
+                    ? 'bg-blue-600 text-white'
                     : darkMode ? 'hover:bg-gray-700 text-gray-400' : 'hover:bg-gray-200 text-gray-600'
                     }`}
                 >
@@ -484,7 +475,7 @@ const FormattingToolbar = ({
                   aria-pressed={editor?.isActive('bulletList')}
                   onClick={() => editor?.chain().focus().toggleBulletList().run()}
                   className={`w-9 h-9 flex items-center justify-center rounded-2xl transition-all duration-150 active:scale-95 ${editor?.isActive('bulletList')
-                    ? darkMode ? 'bg-blue-600 text-white' : 'bg-blue-500 text-white'
+                    ? 'bg-blue-600 text-white'
                     : darkMode ? 'hover:bg-gray-700 text-gray-400' : 'hover:bg-gray-200 text-gray-600'
                     }`}
                 >
@@ -504,7 +495,7 @@ const FormattingToolbar = ({
                   aria-pressed={editor?.isActive('orderedList')}
                   onClick={() => editor?.chain().focus().toggleOrderedList().run()}
                   className={`w-9 h-9 flex items-center justify-center rounded-2xl transition-all duration-150 active:scale-95 ${editor?.isActive('orderedList')
-                    ? darkMode ? 'bg-blue-600 text-white' : 'bg-blue-500 text-white'
+                    ? 'bg-blue-600 text-white'
                     : darkMode ? 'hover:bg-gray-700 text-gray-400' : 'hover:bg-gray-200 text-gray-600'
                     }`}
                 >
@@ -560,54 +551,62 @@ const FormattingToolbar = ({
           </div>
 
           {/* Color Picker — mobile/tablet; desktop has its own in rich toolbar */}
-          <div className="relative md:shrink-0 lg:hidden" ref={colorPickerRef}>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  onClick={() => setIsColorPickerOpen(!isColorPickerOpen)}
-                  className={`w-9 h-9 flex items-center justify-center rounded-2xl transition-all duration-150 active:scale-95 ${isColorPickerOpen
-                      ? darkMode ? 'bg-gray-700' : 'bg-gray-200'
-                      : darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-200'
-                    }`}
-                >
-                  <div
-                    className="w-5 h-5 rounded-full border border-gray-300 dark:border-gray-500 shadow-sm transition-transform hover:scale-110"
-                    style={{ backgroundColor: activeColor }}
-                  />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Text Color</p>
-              </TooltipContent>
-            </Tooltip>
+          <div className="relative md:shrink-0 lg:hidden">
+            <Popover open={isColorPickerOpen} onOpenChange={setIsColorPickerOpen}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <PopoverTrigger asChild>
+                    <button
+                      className={`w-9 h-9 flex items-center justify-center rounded-2xl transition-all duration-150 active:scale-95 ${isColorPickerOpen
+                        ? darkMode ? 'bg-gray-700' : 'bg-gray-200'
+                        : darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-200'
+                        }`}
+                    >
+                      <Palette size={16} className={darkMode ? 'text-gray-300' : 'text-gray-700'} />
+                      {activeColor && (
+                        <div
+                          className="absolute bottom-1 w-4 h-0.5 rounded-full"
+                          style={{ backgroundColor: activeColor }}
+                        />
+                      )}
+                    </button>
+                  </PopoverTrigger>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Text Color</p>
+                </TooltipContent>
+              </Tooltip>
 
-            {isColorPickerOpen && (
-              <div className={`absolute left-0 md:left-auto md:right-0 mt-2 p-2 w-48 grid grid-cols-5 gap-2 rounded-xl shadow-xl border z-50 animate-fade-in ${darkMode
-                ? 'bg-[#111111] border-gray-700'
-                : 'bg-white border-gray-200'
-                }`}>
-                {PRESET_COLORS.map((color, index) => (
-                  <button
-                    key={index}
-                    onClick={() => {
-                      editor?.chain().focus().setColor(color.value).run();
-                      setIsColorPickerOpen(false);
-                    }}
-                    title={color.name}
-                    className={`w-6 h-6 rounded-full border transition-all duration-150 hover:scale-110 active:scale-95 ${activeColor === color.value
-                        ? (darkMode ? 'border-white ring-2 ring-blue-500' : 'border-gray-900 ring-2 ring-blue-400')
+              <PopoverContent 
+                className={`w-48 p-2 rounded-xl shadow-xl border z-50 ${darkMode ? 'bg-[#111111] border-gray-700' : 'bg-white border-gray-200'}`}
+                align="center"
+              >
+                <div className="grid grid-cols-5 gap-2">
+                  {PRESET_COLORS.map((color, index) => (
+                    <button
+                      key={index}
+                      onClick={() => {
+                        editor?.chain().focus().setColor(color.value).run();
+                        setIsColorPickerOpen(false);
+                      }}
+                      title={color.name}
+                      className={`w-6 h-6 rounded-full border transition-all duration-150 hover:scale-110 active:scale-95 flex items-center justify-center ${activeColor === color.value
+                        ? (darkMode ? 'border-white ring-2 ring-blue-500' : 'border-gray-900 ring-2 ring-blue-500')
                         : (darkMode ? 'border-gray-600' : 'border-gray-300')
-                      }`}
-                    style={{ backgroundColor: color.value }}
-                  />
-                ))}
-              </div>
-            )}
+                        }`}
+                      style={{ backgroundColor: color.value }}
+                    >
+                      {activeColor === color.value && <Check size={12} className={color.value === '#ffffff' ? 'text-black' : 'text-white'} />}
+                    </button>
+                  ))}
+                </div>
+              </PopoverContent>
+            </Popover>
           </div>
 
         </div>
         {isSearchOpen && (
-          <div className={`static mt-3 mx-3 md:mx-0 md:absolute md:right-4 md:top-full md:mt-3 z-50 flex items-center gap-2 px-3 py-2 rounded-xl shadow-lg border w-full md:w-auto ${darkMode
+          <div className={`static mt-3 mx-3 md:mx-0 md:absolute md:right-4 md:top-full md:mt-3 z-50 flex items-center gap-2 px-3 py-2 rounded-xl shadow-lg border w-[calc(100%-1.5rem)] md:w-auto ${darkMode
             ? 'bg-[#111111] border-gray-700'
             : 'bg-white border-gray-200'
             }`}>
@@ -651,8 +650,7 @@ const FormattingToolbar = ({
               onClick={() => {
                 setIsSearchOpen(false);
                 setSearchQuery('');
-                setTotalMatches(0);
-                setCurrentMatchIndex(0);
+                if (editor) editor.commands.clearSearch();
               }}
               className={`text-xs px-2 py-1 rounded-md shrink-0 flex items-center justify-center ${darkMode ? 'hover:bg-gray-800 text-gray-300' : 'hover:bg-gray-100 text-gray-600'
                 }`}

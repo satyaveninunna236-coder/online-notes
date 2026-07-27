@@ -159,13 +159,17 @@ const FormattingToolbar = ({
           <div className={`h-px my-1 ${darkMode ? 'bg-gray-800' : 'bg-gray-200'}`} />
           <DropdownMenuItem
             onClick={() => {
-              window.dispatchEvent(
-                new KeyboardEvent('keydown', {
-                  key: 'Delete',
-                  ctrlKey: true,
-                  code: 'Delete',
-                })
-              );
+              // Defer the event dispatch to prevent Radix UI pointer-events lock collisions.
+              // The DropdownMenu must fully close before the AlertDialog opens.
+              setTimeout(() => {
+                window.dispatchEvent(
+                  new KeyboardEvent('keydown', {
+                    key: 'Delete',
+                    ctrlKey: true,
+                    code: 'Delete',
+                  })
+                );
+              }, 150);
             }}
             className="cursor-pointer text-red-600 focus:bg-red-50 focus:text-red-700 dark:text-red-500 dark:focus:bg-red-950/50"
           >

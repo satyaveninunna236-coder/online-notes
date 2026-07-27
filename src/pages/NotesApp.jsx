@@ -169,16 +169,22 @@ const AppleNotes = () => {
   };
 
   const deleteNote = (id) => {
-    if (notes.length === 1) {
+    const targetId = Number(id);
+    if (notes.length <= 1) {
       showToast('At least one note must remain');
       return;
     }
 
-    const newNotes = notes.filter(n => n.id !== id);
-    setNotes(newNotes);
+    const newNotes = notes.filter(n => Number(n.id) !== targetId);
+    let nextActive = activeNote;
 
-    if (activeNote === id) {
-      setActiveNote(newNotes[0].id);
+    if (Number(activeNote) === targetId) {
+      nextActive = newNotes[0].id;
+    }
+
+    setNotes(newNotes);
+    if (Number(activeNote) === targetId) {
+      setActiveNote(nextActive);
     }
 
     showToast('Note deleted successfully');
@@ -709,8 +715,14 @@ const AppleNotes = () => {
               className="bg-red-600 text-white hover:bg-red-700"
               onClick={() => {
                 if (deleteConfirmation.noteId) {
-                  deleteNote(deleteConfirmation.noteId);
+                  const idToDel = deleteConfirmation.noteId;
+                  // Allow native Radix behavior to close the dialog first
                   setDeleteConfirmation({ open: false, noteId: null });
+                  
+                  // Wait for the exit animation to completely finish (300ms) before doing heavy state updates
+                  setTimeout(() => {
+                    deleteNote(idToDel);
+                  }, 300);
                 }
               }}
             >

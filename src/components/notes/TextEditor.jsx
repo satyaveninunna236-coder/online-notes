@@ -176,12 +176,18 @@ const TextEditor = ({
         : null;
     }
 
+    const currentEditor = editor;
     return () => {
-      if (editorRef && editorRef.current === editor) {
+      if (editorRef && editorRef.current === currentEditor) {
         editorRef.current = null;
       }
-      if (onEditorReady) onEditorReady(null);
-      if (contentRef) contentRef.current = null;
+      if (contentRef && contentRef.current && contentRef.current.editor === currentEditor) {
+        contentRef.current = null;
+      }
+      // Deliberately NOT calling onEditorReady(null) here.
+      // When switching notes, the old editor unmounts and the new editor mounts.
+      // Calling onEditorReady(null) here causes a race condition where the unmounting 
+      // editor nullifies the parent's state AFTER the new editor has already set it.
     };
   }, [editor, contentRef, editorRef, onEditorReady]);
 

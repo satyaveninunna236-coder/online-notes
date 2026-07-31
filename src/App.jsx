@@ -5,6 +5,9 @@ import { ConnectionBanner, OfflineScreen } from './components/network/NetworkExp
 
 const NotesApp = lazy(() => import("./pages/NotesApp"));
 const Home = lazy(() => import("./pages/Home"));
+const Login = lazy(() => import("./pages/Login"));
+const Register = lazy(() => import("./pages/Register"));
+const Profile = lazy(() => import("./pages/Profile"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 function App() {
@@ -19,6 +22,9 @@ function App() {
       }>
         <Routes>
           <Route path="/" element={<Home />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
+          <Route path="/profile" element={<Profile />} />
           <Route path="/online-notes" element={<NotesApp />} />
           <Route path="*" element={<NotFound />} />
         </Routes>

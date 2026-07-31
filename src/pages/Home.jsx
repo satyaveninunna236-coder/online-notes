@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { LockKeyhole } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-
+import Navbar from '@/components/Navbar';
 
 // Updated CSS for a more technical, geometric feel
 const animationStyles = `
@@ -79,30 +79,18 @@ function Home() {
   }, [navigate]);
 
 return (
-    <div className={`min-h-screen overflow-hidden relative transition-colors duration-300 flex flex-col justify-center ${
+    <div className={`min-h-screen overflow-hidden relative transition-colors duration-300 flex flex-col ${
       darkMode 
         ? 'bg-gradient-to-br from-[#0B0F19] via-[#0E1628] to-[#0B0F19] text-slate-100' 
         : 'bg-gradient-to-br from-gray-50 via-white to-blue-100 text-gray-900'
     }`}>
       <style>{animationStyles}</style>
 
+      {/* Navbar with User Avatar menu dropdown */}
+      <Navbar darkMode={darkMode} setDarkMode={setDarkMode} />
+
       {/* Background grid for all screens */}
       <div className="absolute inset-0 pointer-events-none tech-grid opacity-30 md:opacity-50 mask-image-gradient z-0"></div>
-      
-      {/* Navbar */}
-      {/* <header className="flex items-center justify-between px-4 sm:px-6 md:px-16 py-4 sm:py-6 relative z-20">
-        <div className="flex items-center gap-3">
-         
-          <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-600 to-cyan-500 text-white flex items-center justify-center font-extrabold text-lg shadow-md shadow-blue-900/20">
-            S
-          </div>
-          <span className={`text-xl font-semibold tracking-wide ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-            SCRIBYX
-          </span>
-        </div>
-
-
-      </header> */}
 
       {/* Hero Section */}
       <main className="flex-1 flex flex-col-reverse md:flex-row items-center justify-center md:justify-between
@@ -112,7 +100,7 @@ gap-12 md:gap-16
 relative z-20 w-full max-w-7xl mx-auto">
         
         {/* Left Content */}
-        <div className="max-w-xl text-center md:text-left  max-md:mt-18 mb-5 ">
+        <div className="max-w-xl text-center md:text-left max-md:mt-8 mb-5">
           <div className={`inline-flex items-center gap-2 px-3 py-1.5 mb-8 text-xs font-semibold rounded-full border ${
             darkMode
               ? 'text-blue-400 bg-blue-900/30 border-blue-700'
@@ -144,15 +132,22 @@ relative z-20 w-full max-w-7xl mx-auto">
           <div className="flex flex-col sm:flex-row items-center justify-center md:justify-start w-full gap-4">
             <button
               onClick={() => navigate('/online-notes')}
-              className="px-8 py-4 bg-blue-700 hover:bg-blue-800 text-white rounded-xl font-semibold shadow-md shadow-blue-700/30 hover:shadow-blue-700/50 transition-all transform hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600/50 focus-visible:ring-offset-2 focus-visible:ring-offset-white"
+              className="w-full sm:w-auto px-8 py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold shadow-lg shadow-blue-600/30 transition-all transform hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600/50"
             >
-              Get Started
+              Open Workspace
             </button>
 
-           
+            <button
+              onClick={() => navigate('/login')}
+              className={`w-full sm:w-auto px-8 py-4 rounded-xl font-semibold border transition-all ${
+                darkMode
+                  ? 'border-slate-700 text-slate-200 hover:bg-slate-800'
+                  : 'border-slate-300 text-slate-700 hover:bg-white/80'
+              }`}
+            >
+              Sign In
+            </button>
           </div>
-
-         
         </div>
 
         {/* Right Animation (Tech/Masculine Floating UI) */}

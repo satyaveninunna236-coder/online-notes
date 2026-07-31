@@ -1,0 +1,123 @@
+import { useState, useEffect } from 'react';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { db } from '../lib/db';
+
+export function useNotesDb() {
+  const [isMigrating, setIsMigrating] = useState(true);
+
+  // Retrieve notes (excluding deleted ones for now, but keeping them in DB for sync)
+  const notes = useLiveQuery(
+    () => db.notes.filter(note => !note.deleted).toArray(),
+    []
+  );
+
+  // One-time migration from localStorage
+  useEffect(() => {
+    const migrateData = async () => {
+      try {
+        const migrationDone = await db.settings.get('migrationDone');
+        if (migrationDone && migrationDone.value) {
+          setIsMigrating(false);
+          return;
+        }
+
+        // Perform migration
+        const storedNotes = localStorage.getItem('notes');
+        if (storedNotes) {
+          const parsedNotes = JSON.parse(storedNotes);
+          const migratedNotes = parsedNotes.map(note => ({
+            ...note,
+            createdAt: note.createdAt || note.timestamp || new Date(),
+            updatedAt: note.lastEditedAt || new Date(),
+            syncStatus: 'pending',
+            deleted: false,
+            deviceId: 'local',
+            version: 1
+          }));
+
+          await db.notes.bulkAdd(migratedNotes);
+        }
+
+        // Migrate other settings like darkMode and activeNote if needed
+        const storedDarkMode = localStorage.getItem('darkMode');
+        if (storedDarkMode) {
+          await db.settings.put({ key: 'darkMode', value: storedDarkMode === 'true' });
+        }
+        
+        const storedActiveNote = localStorage.getItem('activeNote');
+        if (storedActiveNote) {
+          await db.settings.put({ key: 'activeNote', value: parseInt(storedActiveNote) });
+        }
+
+        await db.settings.put({ key: 'migrationDone', value: true });
+        setIsMigrating(false);
+      } catch (err) {
+        console.error("Migration failed:", err);
+        setIsMigrating(false); // don't block app load
+      }
+    };
+
+    migrateData();
+  }, []);
+
+  const addNote = async (noteData) => {
+    const newNote = {
+      ...noteData,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      syncStatus: 'pending',
+      deleted: false,
+      deviceId: 'local',
+      version: 1
+    };
+    return await db.notes.add(newNote);
+  };
+
+  const updateNote = async (id, changes) => {
+    return await db.notes.update(id, {
+      ...changes,
+      updatedAt: new Date(),
+      syncStatus: 'pending',
+      version: changes.version ? changes.version + 1 : 1
+    });
+  };
+
+  const deleteNote = async (id) => {
+    // Soft delete for sync purposes
+    return await db.notes.update(id, {
+      deleted: true,
+      updatedAt: new Date(),
+      syncStatus: 'pending'
+    });
+  };
+
+  // Active Note State
+  const activeNoteItem = useLiveQuery(() => db.settings.get('activeNote'));
+  const activeNote = activeNoteItem ? activeNoteItem.value : null;
+
+  const setActiveNote = async (id) => {
+    if (id !== null) {
+      await db.settings.put({ key: 'activeNote', value: id });
+    }
+  };
+
+  // Dark Mode State
+  const darkModeItem = useLiveQuery(() => db.settings.get('darkMode'));
+  const darkMode = darkModeItem ? darkModeItem.value : false;
+  
+  const setDarkMode = async (isDark) => {
+    await db.settings.put({ key: 'darkMode', value: isDark });
+  };
+
+  return {
+    notes: notes || [],
+    isMigrating,
+    addNote,
+    updateNote,
+    deleteNote,
+    activeNote,
+    setActiveNote,
+    darkMode,
+    setDarkMode
+  };
+}

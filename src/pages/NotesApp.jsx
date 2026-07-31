@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { useNotesDb } from '../hooks/useNotesDb';
 import Sidebar from '../components/notes/Sidebar';
 import FormattingToolbar from '../components/notes/FormattingToolbar';
 import ImagesGrid from '../components/notes/ImagesGrid';
@@ -19,22 +20,17 @@ import {
 
 const AppleNotes = () => {
   // Add cursor position state
-  const [notes, setNotes] = useState([
-    {
-      id: 1,
-      title: 'Welcome to Notes',
-      content: 'Start typing to create your first note...',
-      images: [],
-      timestamp: new Date(), // For backward compatibility (same as createdAt)
-      createdAt: new Date(),
-      lastEditedAt: null // null means never edited after creation
-    }
-  ]);
-  const [activeNote, setActiveNote] = useState(1);
-  const [darkMode, setDarkMode] = useState(() => {
-    const stored = localStorage.getItem('darkMode');
-    return stored ? stored === 'true' : false;
-  });
+  const {
+    notes,
+    isMigrating,
+    addNote: dbAddNote,
+    updateNote: dbUpdateNote,
+    deleteNote: dbDeleteNote,
+    activeNote,
+    setActiveNote,
+    darkMode,
+    setDarkMode
+  } = useNotesDb();
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [sidebarWidth, setSidebarWidth] = useState(280);
   const [isResizing, setIsResizing] = useState(false);
@@ -51,6 +47,10 @@ const AppleNotes = () => {
   const [editor, setEditor] = useState(null);
   const [hydrated, setHydrated] = useState(false);
 
+  useEffect(() => {
+    setHydrated(true);
+  }, []);
+
   const showToast = useCallback((message) => {
     setToast({ visible: true, message });
     setTimeout(() => {
@@ -58,68 +58,35 @@ const AppleNotes = () => {
     }, 2500);
   }, []);
 
-  // Load notes and settings from localStorage on mount
+  const currentNote = notes?.find(n => n.id === activeNote) || (notes?.length > 0 ? notes[0] : null);
+
   useEffect(() => {
-    const storedNotes = localStorage.getItem('notes');
-    if (storedNotes) {
-      const parsedNotes = JSON.parse(storedNotes);
-
-      // Migrate old notes to new format with createdAt, lastEditedAt and formatting
-      const migratedNotes = parsedNotes.map(note => ({
-        ...note,
-        createdAt: note.createdAt || note.timestamp || new Date(),
-        lastEditedAt: note.lastEditedAt !== undefined ? note.lastEditedAt : null,
-        // Default formatting if missing
-        fontSize: note.fontSize || 16,
-        isBold: note.isBold || false,
-        isItalic: note.isItalic || false,
-        isUnderline: note.isUnderline || false,
-        textColor: note.textColor || (darkMode ? '#ffffff' : '#000000') // Note: this might need to adapt to theme changes if hardcoded
-      }));
-
-      setNotes(migratedNotes);
-
-      // Load active note and validate it exists
-      const storedActiveNote = localStorage.getItem('activeNote');
-      if (storedActiveNote) {
-        const activeId = parseInt(storedActiveNote);
-        // Check if the stored activeNote still exists in the notes
-        const noteExists = migratedNotes.some(n => n.id === activeId);
-        if (noteExists) {
-          setActiveNote(activeId);
-        } else if (migratedNotes.length > 0) {
-          // If stored note doesn't exist, use the first note
-          setActiveNote(migratedNotes[0].id);
-        }
-      }
-    } else {
-      // No stored notes, use default
-      const storedActiveNote = localStorage.getItem('activeNote');
-      if (storedActiveNote) {
-        setActiveNote(parseInt(storedActiveNote));
-      }
+    if (isMigrating) return;
+    
+    // Create a default note if database is empty
+    if (notes && notes.length === 0) {
+      const defaultNoteId = Date.now();
+      dbAddNote({
+        id: defaultNoteId,
+        title: 'Welcome to Notes',
+        content: 'Start typing to create your first note...',
+        images: [],
+        timestamp: new Date(),
+        createdAt: new Date(),
+        lastEditedAt: null,
+        fontSize: 16,
+        isBold: false,
+        isItalic: false,
+        isUnderline: false,
+        textColor: darkMode ? '#ffffff' : '#000000'
+      }).then(() => {
+        setActiveNote(defaultNoteId);
+      });
+    } else if (notes && notes.length > 0 && !notes.some(n => n.id === activeNote)) {
+      // If active note is invalid, fallback to the first note
+      setActiveNote(notes[0].id);
     }
-    setHydrated(true);
-  }, []);
-
-  // Save notes to localStorage whenever they change
-  useEffect(() => {
-    localStorage.setItem('notes', JSON.stringify(notes));
-  }, [notes]);
-
-  // Save active note to localStorage whenever it changes
-  useEffect(() => {
-    localStorage.setItem('activeNote', activeNote.toString());
-  }, [activeNote]);
-
-
-
-  // Save dark mode preference to localStorage whenever it changes
-  useEffect(() => {
-    localStorage.setItem('darkMode', darkMode.toString());
-  }, [darkMode]);
-
-  const currentNote = notes.find(n => n.id === activeNote);
+  }, [notes, isMigrating, activeNote, setActiveNote, dbAddNote, darkMode]);
 
   useEffect(() => {
     const handleMouseMove = (e) => {
@@ -164,8 +131,7 @@ const AppleNotes = () => {
       isUnderline: false,
       textColor: darkMode ? '#ffffff' : '#000000'
     };
-    setNotes([newNote, ...notes]);
-    setActiveNote(newNote.id);
+    dbAddNote(newNote).then(() => { setActiveNote(newNote.id); });
   };
 
   const deleteNote = (id) => {
@@ -182,10 +148,11 @@ const AppleNotes = () => {
       nextActive = newNotes[0].id;
     }
 
-    setNotes(newNotes);
-    if (Number(activeNote) === targetId) {
-      setActiveNote(nextActive);
-    }
+    dbDeleteNote(targetId).then(() => {
+      if (Number(activeNote) === targetId) {
+        setActiveNote(nextActive);
+      }
+    });
 
     showToast('Note deleted successfully');
   };
@@ -201,30 +168,16 @@ const AppleNotes = () => {
   const updateNoteContent = (content) => {
     const firstLine = (content || '').split('\n')[0] || '';
     const plainTitle = firstLine.replace(/<[^>]+>/g, '').substring(0, 30);
-    setNotes(notes.map(n =>
-      n.id === activeNote
-        ? {
-          ...n,
-          content,
-          title: plainTitle || 'New Note',
-          timestamp: new Date(), // For backward compatibility
-          lastEditedAt: new Date(), // Mark as edited
-          images: n.images || []
-        }
-        : n
-    ));
+    dbUpdateNote(activeNote, {
+      content,
+      title: plainTitle || 'New Note',
+      timestamp: new Date(),
+      lastEditedAt: new Date()
+    });
   };
 
   const updateNoteFormatting = (updates) => {
-    setNotes(notes.map(n =>
-      n.id === activeNote
-        ? {
-          ...n,
-          ...updates,
-          lastEditedAt: new Date()
-        }
-        : n
-    ));
+    dbUpdateNote(activeNote, updates);
   };
 
   const handlePaste = async (e) => {
@@ -240,15 +193,11 @@ const AppleNotes = () => {
         const reader = new FileReader();
         reader.onload = (event) => {
           const imgUrl = event.target.result;
-          setNotes(prevNotes => prevNotes.map(n =>
-            n.id === activeNote
-              ? {
-                ...n,
-                images: [...(n.images || []), imgUrl],
-                lastEditedAt: new Date()
-              }
-              : n
-          ));
+          const current = notes.find(n => n.id === activeNote);
+          dbUpdateNote(activeNote, {
+            images: [...(current?.images || []), imgUrl],
+            lastEditedAt: new Date()
+          });
         };
         reader.readAsDataURL(file);
       }
@@ -287,19 +236,17 @@ const AppleNotes = () => {
   };
 
   useEffect(() => {
-    // Update text color for non-customized notes when theme changes
-    setNotes(prevNotes => prevNotes.map(n => {
-      // If dark mode is active and text is black, make it white
+    // Note: To avoid excessive DB updates, we could just render with appropriate colors
+    // or update them individually here if needed.
+    notes.forEach(n => {
       if (darkMode && (n.textColor === '#000000' || !n.textColor)) {
-        return { ...n, textColor: '#ffffff' };
+        dbUpdateNote(n.id, { textColor: '#ffffff' });
       }
-      // If light mode is active and text is white, make it black
       if (!darkMode && (n.textColor === '#ffffff' || !n.textColor)) {
-        return { ...n, textColor: '#000000' };
+        dbUpdateNote(n.id, { textColor: '#000000' });
       }
-      return n;
-    }));
-  }, [darkMode]);
+    });
+  }, [darkMode, notes.length]);
 
   useEffect(() => {
     const handleKeyboard = (e) => {
@@ -378,12 +325,11 @@ const AppleNotes = () => {
   const handleLockNote = (noteId) => {
     const note = notes.find(n => n.id === noteId);
     if (note && lastPassword && note.content) {
-      setNotes(notes.map(n => n.id === noteId ? {
-        ...n,
-        encryptedContent: simpleEncrypt(n.content, lastPassword),
+      dbUpdateNote(noteId, {
+        encryptedContent: simpleEncrypt(note.content, lastPassword),
         content: '',
         passwordProtected: true
-      } : n));
+      });
       showToast('Note locked successfully');
     } else {
       showToast('Cannot lock: password missing');
@@ -401,12 +347,12 @@ const AppleNotes = () => {
         }, 3000);
         return;
       }
-      setNotes(notes.map(n => n.id === passwordPrompt.noteId ? {
-        ...n,
-        encryptedContent: simpleEncrypt(n.content, newPassword),
+      const note = notes.find(n => n.id === passwordPrompt.noteId);
+      dbUpdateNote(passwordPrompt.noteId, {
+        encryptedContent: simpleEncrypt(note?.content || '', newPassword),
         content: '',
         passwordProtected: true
-      } : n));
+      });
       setLastPassword(newPassword);
       setPasswordPrompt({ open: false, noteId: null });
       setPasswordError(false);
@@ -428,12 +374,10 @@ const AppleNotes = () => {
 
       if (decrypted !== null) {
         // Password is correct - store encrypted content for re-locking but clear content field
-        setNotes(notes.map(n => n.id === passwordPrompt.noteId ? {
-          ...n,
-          content: decrypted, // Set the decrypted content
+        dbUpdateNote(passwordPrompt.noteId, {
+          content: decrypted,
           passwordProtected: false
-          // Keep encryptedContent stored for future re-locking if needed
-        } : n));
+        });
         setLastPassword(passwordInput);
         setPasswordPrompt({ open: false, noteId: null });
         setPasswordInput(''); // Clear password input
@@ -455,12 +399,11 @@ const AppleNotes = () => {
   };
 
   const handleRemovePassword = (noteId) => {
-    setNotes(notes.map(n => n.id === noteId ? {
-      ...n,
-      passwordProtected: false,
-      encryptedContent: '',
-      content: n.content
-    } : n));
+    dbUpdateNote(noteId, {
+        passwordProtected: false,
+        encryptedContent: '',
+        content: n.content
+      });
     showToast('Password removed');
   };
 
@@ -548,7 +491,7 @@ const AppleNotes = () => {
                       <ImagesGrid
                         currentNote={currentNote}
                         notes={notes}
-                        setNotes={setNotes}
+                        updateNote={dbUpdateNote}
                         activeNote={activeNote}
                       />
                       {hydrated && (

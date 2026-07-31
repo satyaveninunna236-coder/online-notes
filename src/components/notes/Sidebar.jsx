@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { Plus, Search, Sun, Moon, ChevronLeft } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { htmlToPlainText, splitNoteContent } from '@/lib/noteContent';
+import { Download } from 'lucide-react';
+import { usePWAInstall } from '../../hooks/usePWAInstall';
 
 const Sidebar = ({
   filteredNotes,
@@ -18,6 +20,7 @@ const Sidebar = ({
   setIsMobileSidebarOpen,
 }) => {
   const navigate = useNavigate();
+  const { isInstallable, installPWA } = usePWAInstall();
   const listRef = useRef(null);
   const itemRefs = useRef({});
   const [indicator, setIndicator] = useState({
@@ -168,6 +171,31 @@ const Sidebar = ({
               }
             `}
           >
+            {isInstallable && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={installPWA}
+                    className={`
+                      flex items-center justify-center
+                      w-9 h-9 rounded-full
+                      transition-colors duration-150
+                      ${
+                        darkMode
+                          ? 'text-green-400 hover:bg-gray-800'
+                          : 'text-green-600 hover:bg-gray-200'
+                      }
+                    `}
+                  >
+                    <Download size={16} />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Install App</p>
+                </TooltipContent>
+              </Tooltip>
+            )}
+
             <Tooltip>
               <TooltipTrigger asChild>
                 <button

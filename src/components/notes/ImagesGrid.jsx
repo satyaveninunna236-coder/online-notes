@@ -1,7 +1,7 @@
 import React from 'react';
 import { X } from 'lucide-react';
 
-const ImagesGrid = ({ currentNote, notes, setNotes, activeNote }) => (
+const ImagesGrid = ({ currentNote, updateNote }) => (
   <>
     {currentNote.images && currentNote.images.length > 0 && (
       <div className="flex flex-col gap-6 mb-6">
@@ -18,11 +18,7 @@ const ImagesGrid = ({ currentNote, notes, setNotes, activeNote }) => (
                   // No need to revoke if using base64
                   const updatedImages = [...currentNote.images];
                   updatedImages.splice(index, 1);
-                  setNotes(notes.map(n =>
-                    n.id === activeNote
-                      ? { ...n, images: updatedImages }
-                      : n
-                  ));
+                  updateNote(currentNote.id, { images: updatedImages });
                 }}
                 className="absolute top-3 right-3 p-2 rounded-full bg-black/50 hover:bg-red-500 text-white backdrop-blur-sm transition-all opacity-0 group-hover:opacity-100"
                 title="Remove Image"

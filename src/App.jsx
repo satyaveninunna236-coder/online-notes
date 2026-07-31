@@ -1,7 +1,7 @@
 import React, { Suspense, lazy } from 'react';
 import { Routes, Route, BrowserRouter } from "react-router-dom";
 import { NetworkProvider } from './context/NetworkContext';
-import { ConnectionBanner, OfflineScreen } from './components/network/NetworkExperience';
+import { ConnectionBanner } from './components/network/NetworkExperience';
 
 const NotesApp = lazy(() => import("./pages/NotesApp"));
 const Home = lazy(() => import("./pages/Home"));
@@ -23,7 +23,6 @@ function App() {
           <Route path="*" element={<NotFound />} />
         </Routes>
       </Suspense>
-      <OfflineScreen />
     </BrowserRouter>
     </NetworkProvider>
   );

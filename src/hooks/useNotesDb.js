@@ -7,7 +7,17 @@ export function useNotesDb() {
 
   // Retrieve notes (excluding deleted ones for now, but keeping them in DB for sync)
   const notes = useLiveQuery(
-    () => db.notes.filter(note => !note.deleted).toArray(),
+    async () => {
+      const allNotes = await db.notes.filter(note => !note.deleted).toArray();
+      // Sort oldest to newest, but pinned at the top
+      return allNotes.sort((a, b) => {
+        if (a.isPinned && !b.isPinned) return -1;
+        if (!a.isPinned && b.isPinned) return 1;
+        const dateA = new Date(a.createdAt).getTime();
+        const dateB = new Date(b.createdAt).getTime();
+        return dateA - dateB;
+      });
+    },
     []
   );
 
@@ -91,6 +101,17 @@ export function useNotesDb() {
     });
   };
 
+  const togglePin = async (id) => {
+    const note = await db.notes.get(id);
+    if (note) {
+      return await db.notes.update(id, {
+        isPinned: !note.isPinned,
+        updatedAt: new Date(),
+        syncStatus: 'pending'
+      });
+    }
+  };
+
   // Active Note State
   const activeNoteItem = useLiveQuery(() => db.settings.get('activeNote'));
   const activeNote = activeNoteItem ? activeNoteItem.value : null;
@@ -115,6 +136,7 @@ export function useNotesDb() {
     addNote,
     updateNote,
     deleteNote,
+    togglePin,
     activeNote,
     setActiveNote,
     darkMode,

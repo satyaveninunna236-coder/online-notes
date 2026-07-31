@@ -26,6 +26,7 @@ const AppleNotes = () => {
     addNote: dbAddNote,
     updateNote: dbUpdateNote,
     deleteNote: dbDeleteNote,
+    togglePin: dbTogglePin,
     activeNote,
     setActiveNote,
     darkMode,
@@ -412,6 +413,7 @@ const AppleNotes = () => {
       <div className="flex-1 flex relative overflow-hidden">
         {!isFullscreen && (
           <Sidebar
+            togglePin={dbTogglePin}
             notes={notes}
             filteredNotes={filteredNotes}
             activeNote={activeNote}

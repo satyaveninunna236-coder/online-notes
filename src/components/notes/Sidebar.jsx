@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Plus, Search, Sun, Moon, ChevronLeft } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { htmlToPlainText, splitNoteContent } from '@/lib/noteContent';
-import { Download } from 'lucide-react';
+import { Download, Pin } from 'lucide-react';
 import { usePWAInstall } from '../../hooks/usePWAInstall';
 
 const Sidebar = ({
@@ -18,6 +18,7 @@ const Sidebar = ({
   searchInputRef,
   isMobileSidebarOpen,
   setIsMobileSidebarOpen,
+  togglePin,
 }) => {
   const navigate = useNavigate();
   const { isInstallable, installPWA } = usePWAInstall();
@@ -333,21 +334,36 @@ const Sidebar = ({
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        {isActive && (
-                          <div
-                            className={`w-2 h-2 rounded-full shrink-0 ${
-                              darkMode ? 'bg-blue-500' : 'bg-blue-600'
+                      <div className="flex items-center justify-between gap-2 mb-1">
+                        <div className="flex items-center gap-2">
+                          {isActive && (
+                            <div
+                              className={`w-2 h-2 rounded-full shrink-0 ${
+                                darkMode ? 'bg-blue-500' : 'bg-blue-600'
+                              }`}
+                            />
+                          )}
+                          {note.isPinned && (
+                            <Pin size={12} className={darkMode ? 'text-blue-400 fill-blue-400' : 'text-blue-500 fill-blue-500'} />
+                          )}
+                          <h3
+                            className={`font-medium text-sm truncate ${
+                              darkMode ? 'text-white' : 'text-gray-900'
                             }`}
-                          />
-                        )}
-                        <h3
-                          className={`font-medium text-sm truncate ${
-                            darkMode ? 'text-white' : 'text-gray-900'
-                          }`}
+                          >
+                            {note.title}
+                          </h3>
+                        </div>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            togglePin(note.id);
+                          }}
+                          className={`opacity-0 group-hover:opacity-100 transition-colors p-1 rounded ${darkMode ? 'hover:bg-gray-700' : 'hover:bg-white shadow-sm'}`}
+                          title={note.isPinned ? 'Unpin note' : 'Pin note'}
                         >
-                          {note.title}
-                        </h3>
+                          <Pin size={14} className={note.isPinned ? 'text-blue-500 fill-current' : (darkMode ? 'text-gray-400' : 'text-gray-500')} />
+                        </button>
                       </div>
                       <p
                         className={`text-xs truncate ${

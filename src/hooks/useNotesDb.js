@@ -9,13 +9,19 @@ export function useNotesDb() {
   const notes = useLiveQuery(
     async () => {
       const allNotes = await db.notes.filter(note => !note.deleted).toArray();
-      // Sort oldest to newest, but pinned at the top
+      // Sort newest to oldest, but pinned at the top
       return allNotes.sort((a, b) => {
         if (a.isPinned && !b.isPinned) return -1;
         if (!a.isPinned && b.isPinned) return 1;
-        const dateA = new Date(a.createdAt).getTime();
-        const dateB = new Date(b.createdAt).getTime();
-        return dateA - dateB;
+
+        const getNoteTime = (note) => {
+          const dateVal = note.updatedAt || note.lastEditedAt || note.timestamp || note.createdAt || note.id;
+          if (!dateVal) return 0;
+          const time = new Date(dateVal).getTime();
+          return isNaN(time) ? 0 : time;
+        };
+
+        return getNoteTime(b) - getNoteTime(a);
       });
     },
     []
@@ -114,11 +120,21 @@ export function useNotesDb() {
 
   // Active Note State
   const activeNoteItem = useLiveQuery(() => db.settings.get('activeNote'));
-  const activeNote = activeNoteItem ? activeNoteItem.value : null;
+  const [activeNoteState, setActiveNoteState] = useState(null);
+
+  useEffect(() => {
+    if (activeNoteItem !== undefined && activeNoteItem !== null && activeNoteItem.value !== undefined) {
+      setActiveNoteState(activeNoteItem.value);
+    }
+  }, [activeNoteItem]);
 
   const setActiveNote = async (id) => {
-    if (id !== null) {
-      await db.settings.put({ key: 'activeNote', value: id });
+    const val = (id !== null && id !== undefined) ? Number(id) : null;
+    setActiveNoteState(val);
+    if (val !== null) {
+      await db.settings.put({ key: 'activeNote', value: val });
+    } else {
+      await db.settings.put({ key: 'activeNote', value: null });
     }
   };
 
@@ -137,7 +153,7 @@ export function useNotesDb() {
     updateNote,
     deleteNote,
     togglePin,
-    activeNote,
+    activeNote: activeNoteState,
     setActiveNote,
     darkMode,
     setDarkMode

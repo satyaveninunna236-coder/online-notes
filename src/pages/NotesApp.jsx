@@ -5,7 +5,7 @@ import FormattingToolbar from '../components/notes/FormattingToolbar';
 import ImagesGrid from '../components/notes/ImagesGrid';
 import TextEditor from '../components/notes/TextEditor';
 import CommandPalette from '../components/CommandPalette';
-import { Lock, Unlock, ShieldOff, X } from 'lucide-react';
+import { Lock, Unlock, ShieldOff, X, FileText, Plus } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -59,35 +59,16 @@ const AppleNotes = () => {
     }, 2500);
   }, []);
 
-  const currentNote = notes?.find(n => n.id === activeNote) || (notes?.length > 0 ? notes[0] : null);
+  const currentNote = notes?.find(n => Number(n.id) === Number(activeNote)) || (notes?.length > 0 ? notes[0] : null);
 
   useEffect(() => {
     if (isMigrating) return;
     
-    // Create a default note if database is empty
-    if (notes && notes.length === 0) {
-      const defaultNoteId = Date.now();
-      dbAddNote({
-        id: defaultNoteId,
-        title: 'Welcome to Notes',
-        content: 'Start typing to create your first note...',
-        images: [],
-        timestamp: new Date(),
-        createdAt: new Date(),
-        lastEditedAt: null,
-        fontSize: 16,
-        isBold: false,
-        isItalic: false,
-        isUnderline: false,
-        textColor: darkMode ? '#ffffff' : '#000000'
-      }).then(() => {
-        setActiveNote(defaultNoteId);
-      });
-    } else if (notes && notes.length > 0 && !notes.some(n => n.id === activeNote)) {
-      // If active note is invalid, fallback to the first note
+    if (notes && notes.length > 0 && (activeNote === null || activeNote === undefined)) {
+      // If no active note is selected, select the first note
       setActiveNote(notes[0].id);
     }
-  }, [notes, isMigrating, activeNote, setActiveNote, dbAddNote, darkMode]);
+  }, [notes, isMigrating, activeNote, setActiveNote]);
 
   useEffect(() => {
     const handleMouseMove = (e) => {
@@ -114,57 +95,51 @@ const AppleNotes = () => {
   }, [isResizing]);
 
   const addNote = (customTitle) => {
+    setSearchQuery('');
     const titleText = typeof customTitle === 'string' && customTitle.trim() ? customTitle.trim() : 'New Note';
     const bodyHtml = titleText !== 'New Note' ? `<h1>${titleText}</h1><p></p>` : '';
+    const now = new Date();
     const newNote = {
       id: Date.now(),
       title: titleText,
       content: `${titleText}\n${bodyHtml}`,
       images: [],
-      timestamp: new Date(), // For backward compatibility
-      createdAt: new Date(),
-
-      lastEditedAt: null, // Never edited yet
-      // Default formatting for new notes
+      timestamp: now,
+      createdAt: now,
+      lastEditedAt: now,
       fontSize: 16,
       isBold: false,
       isItalic: false,
       isUnderline: false,
       textColor: darkMode ? '#ffffff' : '#000000'
     };
-    dbAddNote(newNote).then(() => { setActiveNote(newNote.id); });
+    setActiveNote(newNote.id);
+    dbAddNote(newNote);
   };
 
   const deleteNote = (id) => {
     const targetId = Number(id);
-    if (notes.length <= 1) {
-      showToast('At least one note must remain');
-      return;
-    }
-
     const newNotes = notes.filter(n => Number(n.id) !== targetId);
-    let nextActive = activeNote;
+    let nextActive = null;
 
-    if (Number(activeNote) === targetId) {
-      nextActive = newNotes[0].id;
+    if (newNotes.length > 0) {
+      if (Number(activeNote) === targetId) {
+        nextActive = newNotes[0].id;
+      } else {
+        nextActive = activeNote;
+      }
     }
 
     dbDeleteNote(targetId).then(() => {
-      if (Number(activeNote) === targetId) {
-        setActiveNote(nextActive);
-      }
+      setActiveNote(nextActive);
     });
 
     showToast('Note deleted successfully');
   };
 
   const requestDeleteNote = useCallback((id) => {
-    if (notes.length === 1) {
-      showToast('At least one note must remain');
-      return;
-    }
     setDeleteConfirmation({ open: true, noteId: id });
-  }, [notes.length, showToast]);
+  }, []);
 
   const updateNoteContent = (content) => {
     const firstLine = (content || '').split('\n')[0] || '';
@@ -442,7 +417,7 @@ const AppleNotes = () => {
         {/* Main Editor Area */}
         <main className={`flex-1 flex flex-col min-w-0 ${darkMode ? 'bg-[#1a1a1a]' : 'bg-white'
           }`}>
-          {currentNote && (
+          {currentNote ? (
             <>
               {currentNote.passwordProtected ? (
                 <div className="flex flex-col items-center justify-center h-full p-4 sm:p-8">
@@ -513,6 +488,25 @@ const AppleNotes = () => {
                 </>
               )}
             </>
+          ) : (
+            <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
+              <div className={`w-16 h-16 rounded-full flex items-center justify-center mb-4 ${darkMode ? 'bg-gray-800 text-gray-400' : 'bg-gray-100 text-gray-500'}`}>
+                <FileText size={32} />
+              </div>
+              <h2 className={`text-2xl font-semibold mb-2 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                No Note Selected
+              </h2>
+              <p className={`text-sm max-w-sm mb-6 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                Select a note from the sidebar or create a new note to start typing.
+              </p>
+              <button
+                onClick={() => addNote()}
+                className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-xl transition-colors shadow-sm flex items-center gap-2"
+              >
+                <Plus size={18} />
+                Create New Note
+              </button>
+            </div>
           )}
         </main>
       </div>

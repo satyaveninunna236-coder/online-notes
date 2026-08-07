@@ -62,12 +62,20 @@ const Sidebar = ({
 
   const previewText = (note) => {
     const { title, body } = splitNoteContent(note.content || '');
-    const plain = htmlToPlainText(body) || title || '';
-    return plain.substring(0, 50);
+    if (!body) return '';
+
+    let plain = htmlToPlainText(body).trim();
+    const trimmedTitle = (title || '').trim();
+
+    if (trimmedTitle && plain.toLowerCase().startsWith(trimmedTitle.toLowerCase())) {
+      plain = plain.slice(trimmedTitle.length).trim();
+    }
+
+    return plain.substring(0, 60);
   };
 
   const updateIndicator = () => {
-    const el = itemRefs.current[activeNote];
+    const el = itemRefs.current[activeNote] || itemRefs.current[Number(activeNote)];
     if (!el) {
       setIndicator((prev) => ({ ...prev, visible: false }));
       return;
@@ -81,7 +89,7 @@ const Sidebar = ({
 
   useLayoutEffect(() => {
     updateIndicator();
-    const el = itemRefs.current[activeNote];
+    const el = itemRefs.current[activeNote] || itemRefs.current[Number(activeNote)];
     if (el) {
       el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
     }
@@ -101,7 +109,7 @@ const Sidebar = ({
       if (!filteredNotes.length) return;
 
       e.preventDefault();
-      const idx = filteredNotes.findIndex((n) => n.id === activeNote);
+      const idx = filteredNotes.findIndex((n) => Number(n.id) === Number(activeNote));
       if (e.key === 'ArrowDown') {
         const next = filteredNotes[Math.min(idx + 1, filteredNotes.length - 1)];
         if (next) setActiveNote(next.id);
@@ -311,7 +319,7 @@ const Sidebar = ({
             />
 
             {filteredNotes.map((note) => {
-              const isActive = activeNote === note.id;
+              const isActive = Number(activeNote) === Number(note.id);
               return (
                 <div
                   key={note.id}
@@ -370,7 +378,7 @@ const Sidebar = ({
                           darkMode ? 'text-gray-500' : 'text-gray-500'
                         }`}
                       >
-                        {previewText(note)}
+                        {previewText(note) || 'No additional text'}
                       </p>
                       <p
                         className={`text-xs mt-1 ${

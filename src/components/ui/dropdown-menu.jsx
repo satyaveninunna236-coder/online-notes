@@ -30,7 +30,7 @@ function DropdownMenuContent({ className, sideOffset = 4, ...props }) {
         data-slot="dropdown-menu-content"
         sideOffset={sideOffset}
         className={cn(
-          "bg-popover text-popover-foreground data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 z-50 max-h-(--radix-dropdown-menu-content-available-height) min-w-[8rem] origin-(--radix-dropdown-menu-content-transform-origin) overflow-x-hidden overflow-y-auto rounded-md border p-1 shadow-md",
+          "bg-white text-gray-900 border border-gray-200 dark:bg-[#18181b] dark:text-gray-100 dark:border-gray-700/80 shadow-2xl data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 z-50 max-h-(--radix-dropdown-menu-content-available-height) min-w-[9rem] origin-(--radix-dropdown-menu-content-transform-origin) overflow-x-hidden overflow-y-auto rounded-xl p-1.5 backdrop-blur-md",
           className
         )}
         {...props}
@@ -52,7 +52,7 @@ function DropdownMenuItem({ className, inset, variant = "default", ...props }) {
       data-inset={inset}
       data-variant={variant}
       className={cn(
-        "focus:bg-accent focus:text-accent-foreground data-[variant=destructive]:text-destructive data-[variant=destructive]:focus:bg-destructive/10 dark:data-[variant=destructive]:focus:bg-destructive/20 data-[variant=destructive]:focus:text-destructive data-[variant=destructive]:*:[svg]:!text-destructive [&_svg:not([class*='text-'])]:text-muted-foreground relative flex cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-hidden select-none data-[disabled]:pointer-events-none data-[disabled]:opacity-50 data-[inset]:pl-8 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+        "cursor-pointer focus:bg-gray-100 focus:text-gray-900 dark:focus:bg-gray-800 dark:focus:text-white data-[variant=destructive]:text-red-600 data-[variant=destructive]:focus:bg-red-50 dark:data-[variant=destructive]:text-red-400 dark:data-[variant=destructive]:focus:bg-red-950/40 dark:data-[variant=destructive]:focus:text-red-300 relative flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm font-medium outline-hidden select-none transition-colors data-[disabled]:pointer-events-none data-[disabled]:opacity-50 data-[inset]:pl-8 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 [&_svg]:text-gray-500 dark:[&_svg]:text-gray-400 dark:hover:[&_svg]:text-gray-200",
         className
       )}
       {...props}
@@ -128,7 +128,7 @@ function DropdownMenuSeparator({ className, ...props }) {
   return (
     <DropdownMenuPrimitive.Separator
       data-slot="dropdown-menu-separator"
-      className={cn("bg-border -mx-1 my-1 h-px", className)}
+      className={cn("bg-gray-200 dark:bg-gray-800 -mx-1 my-1 h-px", className)}
       {...props}
     />
   )
@@ -157,7 +157,7 @@ function DropdownMenuSubTrigger({ className, inset, children, ...props }) {
       data-slot="dropdown-menu-sub-trigger"
       data-inset={inset}
       className={cn(
-        "focus:bg-accent focus:text-accent-foreground data-[state=open]:bg-accent data-[state=open]:text-accent-foreground flex cursor-default items-center rounded-sm px-2 py-1.5 text-sm outline-hidden select-none data-[inset]:pl-8",
+        "focus:bg-gray-100 focus:text-gray-900 dark:focus:bg-gray-800 dark:focus:text-white data-[state=open]:bg-gray-100 dark:data-[state=open]:bg-gray-800 flex cursor-pointer items-center rounded-lg px-2.5 py-2 text-sm font-medium outline-hidden select-none transition-colors data-[inset]:pl-8",
         className
       )}
       {...props}
@@ -173,7 +173,7 @@ function DropdownMenuSubContent({ className, ...props }) {
     <DropdownMenuPrimitive.SubContent
       data-slot="dropdown-menu-sub-content"
       className={cn(
-        "bg-popover text-popover-foreground data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 z-50 min-w-[8rem] origin-(--radix-dropdown-menu-content-transform-origin) overflow-hidden rounded-md border p-1 shadow-lg",
+        "bg-white text-gray-900 border border-gray-200 dark:bg-[#18181b] dark:text-gray-100 dark:border-gray-700/80 shadow-2xl data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 z-50 min-w-[9rem] origin-(--radix-dropdown-menu-content-transform-origin) overflow-hidden rounded-xl p-1.5 backdrop-blur-md",
         className
       )}
       {...props}

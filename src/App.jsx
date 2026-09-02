@@ -19,7 +19,7 @@ function App() {
       }>
         <Routes>
           <Route path="/" element={<Home />} />
-          <Route path="/online-notes" element={<NotesApp />} />
+          <Route path="/notes" element={<NotesApp />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </Suspense>

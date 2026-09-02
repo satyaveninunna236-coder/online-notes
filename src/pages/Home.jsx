@@ -71,7 +71,7 @@ function Home() {
   useEffect(() => {
     const handleKeyPress = (event) => {
       if (event.key === "Enter") {
-        navigate('/online-notes');
+        navigate('/notes');
       }
     };
     window.addEventListener("keydown", handleKeyPress);
@@ -143,7 +143,7 @@ relative z-20 w-full max-w-7xl mx-auto">
 
           <div className="flex flex-col sm:flex-row items-center justify-center md:justify-start w-full gap-4">
             <button
-              onClick={() => navigate('/online-notes')}
+              onClick={() => navigate('/notes')}
               className="px-8 py-4 bg-blue-700 hover:bg-blue-800 text-white rounded-xl font-semibold shadow-md shadow-blue-700/30 hover:shadow-blue-700/50 transition-all transform hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600/50 focus-visible:ring-offset-2 focus-visible:ring-offset-white"
             >
               Get Started

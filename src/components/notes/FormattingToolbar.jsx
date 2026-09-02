@@ -336,8 +336,8 @@ const FormattingToolbar = ({
                     <DropdownMenuTrigger asChild>
                       <button
                         className={`w-9 h-9 flex items-center justify-center rounded-xl transition-all duration-150 active:scale-95 ${isSettingsOpen
-                            ? darkMode ? 'bg-gray-700 text-white' : 'bg-gray-200 text-gray-900'
-                            : darkMode ? 'hover:bg-gray-800 text-gray-300' : 'hover:bg-white text-gray-700'
+                          ? darkMode ? 'bg-gray-700 text-white' : 'bg-gray-200 text-gray-900'
+                          : darkMode ? 'hover:bg-gray-800 text-gray-300' : 'hover:bg-white text-gray-700'
                           }`}
                         aria-label="More options"
                       >
@@ -390,8 +390,8 @@ const FormattingToolbar = ({
                           type="button"
                           aria-label="More options"
                           className={`w-9 h-9 flex items-center justify-center rounded-2xl transition-all duration-150 active:scale-95 ${isSettingsOpen
-                              ? darkMode ? 'bg-gray-700 text-white' : 'bg-gray-200 text-gray-900'
-                              : darkMode ? 'hover:bg-gray-700 text-gray-400' : 'hover:bg-gray-200 text-gray-600'
+                            ? darkMode ? 'bg-gray-700 text-white' : 'bg-gray-200 text-gray-900'
+                            : darkMode ? 'hover:bg-gray-700 text-gray-400' : 'hover:bg-gray-200 text-gray-600'
                             }`}
                         >
                           <MoreVertical size={16} />
@@ -581,7 +581,7 @@ const FormattingToolbar = ({
                 </TooltipContent>
               </Tooltip>
 
-              <PopoverContent 
+              <PopoverContent
                 className={`w-48 p-2 rounded-xl shadow-xl border z-50 ${darkMode ? 'bg-[#111111] border-gray-700' : 'bg-white border-gray-200'}`}
                 align="center"
               >

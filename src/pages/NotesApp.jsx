@@ -63,7 +63,7 @@ const AppleNotes = () => {
 
   useEffect(() => {
     if (isMigrating) return;
-    
+
     if (notes && notes.length > 0 && (activeNote === null || activeNote === undefined)) {
       // If no active note is selected, select the first note
       setActiveNote(notes[0].id);
@@ -376,10 +376,10 @@ const AppleNotes = () => {
 
   const handleRemovePassword = (noteId) => {
     dbUpdateNote(noteId, {
-        passwordProtected: false,
-        encryptedContent: '',
-        content: n.content
-      });
+      passwordProtected: false,
+      encryptedContent: '',
+      content: n.content
+    });
     showToast('Password removed');
   };
 
@@ -657,7 +657,7 @@ const AppleNotes = () => {
                   const idToDel = deleteConfirmation.noteId;
                   // Allow native Radix behavior to close the dialog first
                   setDeleteConfirmation({ open: false, noteId: null });
-                  
+
                   // Wait for the exit animation to completely finish (300ms) before doing heavy state updates
                   setTimeout(() => {
                     deleteNote(idToDel);

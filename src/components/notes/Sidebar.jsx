@@ -158,10 +158,9 @@ const Sidebar = ({
                 h-10 px-6 rounded-full
                 text-sm font-semibold tracking-wide
                 transition-all duration-200
-                ${
-                  darkMode
-                    ? 'bg-transparent text-white border border-gray-700 hover:bg-gray-800/40'
-                    : 'bg-transparent text-gray-900 border border-gray-300 hover:bg-gray-100'
+                ${darkMode
+                  ? 'bg-transparent text-white border border-gray-700 hover:bg-gray-800/40'
+                  : 'bg-transparent text-gray-900 border border-gray-300 hover:bg-gray-100'
                 }
               `}
             >
@@ -173,10 +172,9 @@ const Sidebar = ({
             className={`
               flex items-center gap-1
               h-10 px-2 rounded-full
-              ${
-                darkMode
-                  ? 'bg-transparent border border-gray-700'
-                  : 'bg-transparent border border-gray-300'
+              ${darkMode
+                ? 'bg-transparent border border-gray-700'
+                : 'bg-transparent border border-gray-300'
               }
             `}
           >
@@ -189,10 +187,9 @@ const Sidebar = ({
                       flex items-center justify-center
                       w-9 h-9 rounded-full
                       transition-colors duration-150
-                      ${
-                        darkMode
-                          ? 'text-green-400 hover:bg-gray-800'
-                          : 'text-green-600 hover:bg-gray-200'
+                      ${darkMode
+                        ? 'text-green-400 hover:bg-gray-800'
+                        : 'text-green-600 hover:bg-gray-200'
                       }
                     `}
                   >
@@ -213,10 +210,9 @@ const Sidebar = ({
                     flex items-center justify-center
                     w-9 h-9 rounded-full
                     transition-colors duration-150
-                    ${
-                      darkMode
-                        ? 'text-gray-200 hover:bg-gray-800'
-                        : 'text-gray-700 hover:bg-gray-200'
+                    ${darkMode
+                      ? 'text-gray-200 hover:bg-gray-800'
+                      : 'text-gray-700 hover:bg-gray-200'
                     }
                   `}
                 >
@@ -236,10 +232,9 @@ const Sidebar = ({
                     flex items-center justify-center
                     w-9 h-9 rounded-full
                     transition-colors duration-150
-                    ${
-                      darkMode
-                        ? 'text-gray-200 hover:bg-gray-800'
-                        : 'text-gray-700 hover:bg-gray-200'
+                    ${darkMode
+                      ? 'text-gray-200 hover:bg-gray-800'
+                      : 'text-gray-700 hover:bg-gray-200'
                     }
                   `}
                 >
@@ -254,11 +249,10 @@ const Sidebar = ({
         </div>
 
         <div
-          className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${
-            darkMode
+          className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${darkMode
               ? 'bg-gray-800/50 border border-gray-800 focus-within:border-gray-700'
               : 'bg-gray-50 border border-gray-200 focus-within:border-gray-300'
-          }`}
+            }`}
         >
           <Search size={16} className={darkMode ? 'text-gray-500' : 'text-gray-400'} />
           <input
@@ -267,11 +261,10 @@ const Sidebar = ({
             placeholder="Search (⌘ + k)"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className={`flex-1 bg-transparent outline-none text-sm ${
-              darkMode
+            className={`flex-1 bg-transparent outline-none text-sm ${darkMode
                 ? 'text-white placeholder-gray-500'
                 : 'text-gray-900 placeholder-gray-400'
-            }`}
+              }`}
           />
         </div>
       </div>
@@ -279,10 +272,9 @@ const Sidebar = ({
       <div
         ref={listRef}
         className={`flex-1 overflow-y-auto rounded-2xl relative
-          ${
-            darkMode
-              ? 'bg-[#111111] border border-gray-800'
-              : 'bg-gray-50 border border-gray-200'
+          ${darkMode
+            ? 'bg-[#111111] border border-gray-800'
+            : 'bg-gray-50 border border-gray-200'
           }
         `}
       >
@@ -291,9 +283,8 @@ const Sidebar = ({
             <p className="font-medium text-sm">No notes found for</p>
             {searchQuery && (
               <p
-                className={`mt-1 text-sm font-semibold break-words ${
-                  darkMode ? 'text-white' : 'text-gray-800'
-                }`}
+                className={`mt-1 text-sm font-semibold break-words ${darkMode ? 'text-white' : 'text-gray-800'
+                  }`}
               >
                 "{searchQuery}"
               </p>
@@ -305,11 +296,10 @@ const Sidebar = ({
             {/* Sliding active highlighter */}
             <div
               aria-hidden
-              className={`absolute left-2 right-2 rounded-lg pointer-events-none z-0 transition-all duration-200 ease-out border ${
-                darkMode
+              className={`absolute left-2 right-2 rounded-lg pointer-events-none z-0 transition-all duration-200 ease-out border ${darkMode
                   ? 'bg-blue-600/10 border-blue-600/20'
                   : 'bg-blue-50 border-blue-100'
-              }`}
+                }`}
               style={{
                 top: indicator.top,
                 height: indicator.height,
@@ -331,12 +321,11 @@ const Sidebar = ({
                   className={`
                     relative z-10 p-3 mb-1 cursor-pointer rounded-lg group
                     transition-colors duration-150 border border-transparent
-                    ${
-                      isActive
-                        ? ''
-                        : darkMode
-                          ? 'hover:bg-gray-800/50'
-                          : 'hover:bg-gray-50'
+                    ${isActive
+                      ? ''
+                      : darkMode
+                        ? 'hover:bg-gray-800/50'
+                        : 'hover:bg-gray-50'
                     }
                   `}
                 >
@@ -346,18 +335,16 @@ const Sidebar = ({
                         <div className="flex items-center gap-2">
                           {isActive && (
                             <div
-                              className={`w-2 h-2 rounded-full shrink-0 ${
-                                darkMode ? 'bg-blue-500' : 'bg-blue-600'
-                              }`}
+                              className={`w-2 h-2 rounded-full shrink-0 ${darkMode ? 'bg-blue-500' : 'bg-blue-600'
+                                }`}
                             />
                           )}
                           {note.isPinned && (
                             <Pin size={12} className={darkMode ? 'text-blue-400 fill-blue-400' : 'text-blue-500 fill-blue-500'} />
                           )}
                           <h3
-                            className={`font-medium text-sm truncate ${
-                              darkMode ? 'text-white' : 'text-gray-900'
-                            }`}
+                            className={`font-medium text-sm truncate ${darkMode ? 'text-white' : 'text-gray-900'
+                              }`}
                           >
                             {note.title}
                           </h3>
@@ -374,16 +361,14 @@ const Sidebar = ({
                         </button>
                       </div>
                       <p
-                        className={`text-xs truncate ${
-                          darkMode ? 'text-gray-500' : 'text-gray-500'
-                        }`}
+                        className={`text-xs truncate ${darkMode ? 'text-gray-500' : 'text-gray-500'
+                          }`}
                       >
                         {previewText(note) || 'No additional text'}
                       </p>
                       <p
-                        className={`text-xs mt-1 ${
-                          darkMode ? 'text-gray-600' : 'text-gray-400'
-                        }`}
+                        className={`text-xs mt-1 ${darkMode ? 'text-gray-600' : 'text-gray-400'
+                          }`}
                       >
                         {formatDate(note.timestamp)}
                       </p>

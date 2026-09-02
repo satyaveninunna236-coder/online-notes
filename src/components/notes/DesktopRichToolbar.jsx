@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Bold,
   Italic,
@@ -17,12 +17,17 @@ import {
   List,
   ListOrdered,
   Palette,
+  Table as TableIcon,
+  Image as ImageIcon,
+  Plus,
+  Trash2,
 } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {
@@ -121,7 +126,11 @@ const DesktopRichToolbar = ({ editor, darkMode, rightSlot }) => {
   const [linkOpen, setLinkOpen] = useState(false);
   const [linkUrl, setLinkUrl] = useState('');
   const [linkError, setLinkError] = useState('');
+  const [imageOpen, setImageOpen] = useState(false);
+  const [imageUrl, setImageUrl] = useState('');
+  const [imageError, setImageError] = useState('');
   const savedSelectionRef = React.useRef(null);
+  const fileInputRef = useRef(null);
 
   useEffect(() => {
     if (!editor) return undefined;
@@ -139,6 +148,8 @@ const DesktopRichToolbar = ({ editor, darkMode, rightSlot }) => {
     /Mac|iPhone|iPad|iPod/.test(navigator.platform || '');
 
   const mod = isMac ? '⌘' : 'Ctrl';
+
+  const isTableActive = editor?.isActive('table');
 
   const activeHeading = (() => {
     if (!editor) return HEADING_OPTIONS[0];
@@ -231,6 +242,33 @@ const DesktopRichToolbar = ({ editor, darkMode, rightSlot }) => {
     }
   }, [editor]);
 
+  const handleInsertImageFile = (e) => {
+    const file = e.target.files?.[0];
+    if (file && editor) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const base64Url = event.target.result;
+        editor.chain().focus().setImage({ src: base64Url }).run();
+      };
+      reader.readAsDataURL(file);
+    }
+    if (e.target) e.target.value = '';
+    setImageOpen(false);
+  };
+
+  const applyImageUrl = () => {
+    if (!editor) return;
+    const normalized = normalizeUrl(imageUrl);
+    if (!normalized) {
+      setImageError('Enter a valid image URL');
+      return;
+    }
+    editor.chain().focus().setImage({ src: normalized }).run();
+    setImageUrl('');
+    setImageError('');
+    setImageOpen(false);
+  };
+
   if (!editor) return null;
 
   const canUndo = editor.can().undo();
@@ -242,7 +280,7 @@ const DesktopRichToolbar = ({ editor, darkMode, rightSlot }) => {
     }`;
 
   const menuContentClass = darkMode
-    ? 'bg-[#111111] border-gray-700 text-gray-100'
+    ? 'bg-[#18181b] border-gray-700/80 text-gray-100'
     : 'bg-white border-gray-200 text-gray-900';
 
   return (
@@ -540,6 +578,183 @@ const DesktopRichToolbar = ({ editor, darkMode, rightSlot }) => {
       </Group>
 
       <Separator darkMode={darkMode} />
+
+      {/* Tables & Media */}
+      <Group darkMode={darkMode}>
+        {/* Table Dropdown */}
+        <DropdownMenu>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  aria-label="Table"
+                  className={`w-9 h-9 flex items-center justify-center rounded-2xl transition-all duration-150 active:scale-95 ${
+                    isTableActive
+                      ? 'bg-blue-600 text-white'
+                      : darkMode
+                        ? 'hover:bg-gray-700 text-gray-400'
+                        : 'hover:bg-gray-200 text-gray-600'
+                  }`}
+                >
+                  <TableIcon size={16} />
+                </button>
+              </DropdownMenuTrigger>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Table options</p>
+            </TooltipContent>
+          </Tooltip>
+          <DropdownMenuContent align="start" className={`w-48 ${menuContentClass}`}>
+            {!isTableActive ? (
+              <DropdownMenuItem
+                onClick={() =>
+                  editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()
+                }
+              >
+                <Plus size={15} className="mr-2 text-blue-500" />
+                <span>Insert Table (3×3)</span>
+              </DropdownMenuItem>
+            ) : (
+              <>
+                <DropdownMenuItem
+                  onClick={() => editor.chain().focus().addRowBefore().run()}
+                >
+                  <span>Add Row Above</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => editor.chain().focus().addRowAfter().run()}
+                >
+                  <span>Add Row Below</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => editor.chain().focus().deleteRow().run()}
+                  className="text-red-500"
+                >
+                  <Trash2 size={14} className="mr-2" />
+                  <span>Delete Row</span>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={() => editor.chain().focus().addColumnBefore().run()}
+                >
+                  <span>Add Column Left</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => editor.chain().focus().addColumnAfter().run()}
+                >
+                  <span>Add Column Right</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => editor.chain().focus().deleteColumn().run()}
+                  className="text-red-500"
+                >
+                  <Trash2 size={14} className="mr-2" />
+                  <span>Delete Column</span>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={() => editor.chain().focus().deleteTable().run()}
+                  className="text-red-600 font-semibold"
+                >
+                  <Trash2 size={14} className="mr-2" />
+                  <span>Delete Table</span>
+                </DropdownMenuItem>
+              </>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        {/* Media / Image Popover */}
+        <Popover open={imageOpen} onOpenChange={setImageOpen}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <PopoverTrigger asChild>
+                <button
+                  type="button"
+                  aria-label="Insert image"
+                  className={`w-9 h-9 flex items-center justify-center rounded-2xl transition-all duration-150 active:scale-95 ${
+                    imageOpen
+                      ? 'bg-blue-600 text-white'
+                      : darkMode
+                        ? 'hover:bg-gray-700 text-gray-400'
+                        : 'hover:bg-gray-200 text-gray-600'
+                  }`}
+                >
+                  <ImageIcon size={16} />
+                </button>
+              </PopoverTrigger>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Insert Image</p>
+            </TooltipContent>
+          </Tooltip>
+          <PopoverContent
+            align="start"
+            className={`w-72 p-3 ${menuContentClass} border`}
+          >
+            <p
+              className={`text-xs font-medium mb-2 ${
+                darkMode ? 'text-gray-400' : 'text-gray-500'
+              }`}
+            >
+              Insert Image
+            </p>
+            <input
+              type="file"
+              ref={fileInputRef}
+              accept="image/*"
+              className="hidden"
+              onChange={handleInsertImageFile}
+            />
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="w-full mb-3 px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium flex items-center justify-center gap-2"
+            >
+              <ImageIcon size={16} />
+              <span>Upload from device</span>
+            </button>
+            <div className="flex items-center gap-2 mb-2">
+              <div className={`h-px flex-1 ${darkMode ? 'bg-gray-700' : 'bg-gray-200'}`} />
+              <span className="text-[11px] text-gray-400 uppercase tracking-wider">or URL</span>
+              <div className={`h-px flex-1 ${darkMode ? 'bg-gray-700' : 'bg-gray-200'}`} />
+            </div>
+            <input
+              type="url"
+              value={imageUrl}
+              onChange={(e) => {
+                setImageUrl(e.target.value);
+                setImageError('');
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  applyImageUrl();
+                }
+              }}
+              placeholder="https://example.com/image.png"
+              className={`w-full px-3 py-2 rounded-lg border text-sm outline-none focus:ring-2 focus:ring-blue-500 ${
+                darkMode
+                  ? 'bg-gray-900 border-gray-700 text-white placeholder-gray-500'
+                  : 'bg-white border-gray-300 text-gray-900 placeholder-gray-400'
+              }`}
+            />
+            {imageError && (
+              <p className="mt-1.5 text-xs text-red-500">{imageError}</p>
+            )}
+            <div className="mt-2 flex justify-end">
+              <button
+                type="button"
+                onClick={applyImageUrl}
+                className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium"
+              >
+                Insert from URL
+              </button>
+            </div>
+          </PopoverContent>
+        </Popover>
+      </Group>
 
       {/* Links */}
       <Group darkMode={darkMode}>

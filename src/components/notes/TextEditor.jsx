@@ -3,6 +3,8 @@ import StarterKit from '@tiptap/starter-kit';
 import Link from '@tiptap/extension-link';
 import Placeholder from '@tiptap/extension-placeholder';
 import { TextStyleKit } from '@tiptap/extension-text-style';
+import { Table, TableRow, TableCell, TableHeader } from '@tiptap/extension-table';
+import { Image } from '@tiptap/extension-image';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ensureBodyHtml,
@@ -26,6 +28,22 @@ const createExtensions = () => [
       class: 'rte-link',
       rel: 'noopener noreferrer nofollow',
       target: '_blank',
+    },
+  }),
+  Table.configure({
+    resizable: true,
+    HTMLAttributes: {
+      class: 'rte-table',
+    },
+  }),
+  TableRow,
+  TableHeader,
+  TableCell,
+  Image.configure({
+    inline: true,
+    allowBase64: true,
+    HTMLAttributes: {
+      class: 'rte-image',
     },
   }),
   Placeholder.configure({
@@ -94,7 +112,7 @@ const TextEditor = ({
   onEditorReady,
 }) => {
   const titleRef = useRef(null);
-  const noteIdRef = useRef(null);
+  const noteIdRef = useRef(currentNote?.id);
   const skippingUpdateRef = useRef(false);
   const [, setTimeTick] = useState(0);
 
@@ -104,8 +122,7 @@ const TextEditor = ({
   );
 
   const extensions = useMemo(() => createExtensions(), []);
-
-  const initialHtml = useMemo(() => ensureBodyHtml(body), []); // eslint-disable-line react-hooks/exhaustive-deps
+  const initialHtml = useMemo(() => ensureBodyHtml(body), [currentNote?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const interval = setInterval(() => setTimeTick((t) => t + 1), 60000);
@@ -129,19 +146,55 @@ const TextEditor = ({
 
         for (const item of items) {
           if (item.type.indexOf('image') !== -1) {
-            if (handlePaste) handlePaste(event);
-            return true;
+            event.preventDefault();
+            const file = item.getAsFile();
+            if (file) {
+              const reader = new FileReader();
+              reader.onload = (e) => {
+                const base64Url = e.target.result;
+                editor?.chain().focus().setImage({ src: base64Url }).run();
+              };
+              reader.readAsDataURL(file);
+              return true;
+            }
+          }
+        }
+        return false;
+      },
+      handleDrop: (view, event, _slice, moved) => {
+        if (!moved && event.dataTransfer?.files?.length) {
+          for (const file of event.dataTransfer.files) {
+            if (file.type.startsWith('image/')) {
+              event.preventDefault();
+              const reader = new FileReader();
+              reader.onload = (e) => {
+                const base64Url = e.target.result;
+                const coordinates = view.posAtCoords({ left: event.clientX, top: event.clientY });
+                if (coordinates) {
+                  view.dispatch(
+                    view.state.tr.insert(
+                      coordinates.pos,
+                      view.state.schema.nodes.image.create({ src: base64Url })
+                    )
+                  );
+                } else {
+                  editor?.chain().focus().setImage({ src: base64Url }).run();
+                }
+              };
+              reader.readAsDataURL(file);
+              return true;
+            }
           }
         }
         return false;
       },
     },
     onUpdate: ({ editor: ed }) => {
-      if (skippingUpdateRef.current) return;
+      if (skippingUpdateRef.current || !currentNote?.id) return;
       const html = ed.getHTML();
       const currentTitle =
         titleRef.current?.value ?? splitNoteContent(currentNote?.content || '').title;
-      updateNoteContent(joinNoteContent(currentTitle, html === '<p></p>' ? '' : html));
+      updateNoteContent(currentNote.id, joinNoteContent(currentTitle, html === '<p></p>' ? '' : html));
     },
   });
 
@@ -170,6 +223,9 @@ const TextEditor = ({
                 .insertContent(needsSpace ? ` ${text}` : text)
                 .run();
             },
+            insertImage: (src) => {
+              editor.chain().focus().setImage({ src }).run();
+            },
             getText: () => editor.getText(),
             getHTML: () => editor.getHTML(),
           }
@@ -184,10 +240,6 @@ const TextEditor = ({
       if (contentRef && contentRef.current && contentRef.current.editor === currentEditor) {
         contentRef.current = null;
       }
-      // Deliberately NOT calling onEditorReady(null) here.
-      // When switching notes, the old editor unmounts and the new editor mounts.
-      // Calling onEditorReady(null) here causes a race condition where the unmounting 
-      // editor nullifies the parent's state AFTER the new editor has already set it.
     };
   }, [editor, contentRef, editorRef, onEditorReady]);
 
@@ -210,11 +262,11 @@ const TextEditor = ({
       return;
     }
 
-    const editorEmpty = !editor.getText().trim();
+    const editorEmpty = !editor.getText().trim() && !editor.getHTML().includes('<img') && !editor.getHTML().includes('<table');
     if (editorEmpty && nextBody && nextBody.trim()) {
       apply();
     }
-  }, [currentNote?.id, currentNote?.content, editor, currentNote]);
+  }, [currentNote?.id, currentNote?.content, editor]);
 
   useEffect(() => {
     if (!editor) return;
@@ -235,7 +287,9 @@ const TextEditor = ({
   const handleTitleChange = (e) => {
     const newTitle = e.target.value.replace(/\n/g, '');
     const html = editor?.getHTML() || ensureBodyHtml(body);
-    updateNoteContent(joinNoteContent(newTitle, html === '<p></p>' ? '' : html));
+    if (currentNote?.id) {
+      updateNoteContent(currentNote.id, joinNoteContent(newTitle, html === '<p></p>' ? '' : html));
+    }
   };
 
   const handleTitleKeyDown = (e) => {

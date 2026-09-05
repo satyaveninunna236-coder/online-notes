@@ -556,7 +556,7 @@ const FormattingToolbar = ({
               </DropdownMenuTrigger>
               <DropdownMenuContent
                 align="start"
-                className={`w-36 ${darkMode ? 'bg-[#111111] border-gray-700 text-gray-100' : 'bg-white border-gray-200'}`}
+                className={`w-36 max-h-60 overflow-y-auto ${darkMode ? 'bg-[#111111] border-gray-700 text-gray-100' : 'bg-white border-gray-200'}`}
               >
                 {FONT_SIZES.map((size) => {
                   const selected = activeFontSize.value === size.value;
@@ -570,15 +570,18 @@ const FormattingToolbar = ({
                           editor?.chain().focus().setFontSize(size.value).run();
                         }
                       }}
-                      className={`flex items-center justify-between gap-2 ${darkMode ? 'focus:bg-gray-800' : ''}`}
+                      className={`flex items-center justify-between gap-2 py-1.5 px-2.5 cursor-pointer text-sm ${darkMode ? 'focus:bg-gray-800' : ''}`}
                     >
-                      <span>{size.label}</span>
-                      {selected && <Check size={14} className="text-blue-500" />}
+                      <span className="text-sm font-medium">
+                        {size.label === 'Default' ? 'Default (16)' : `${size.label} px`}
+                      </span>
+                      {selected && <Check size={14} className="text-blue-500 shrink-0" />}
                     </DropdownMenuItem>
                   );
                 })}
               </DropdownMenuContent>
             </DropdownMenu>
+
           </div>
 
           {/* Color Picker — mobile/tablet; desktop has its own in rich toolbar */}

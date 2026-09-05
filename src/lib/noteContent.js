@@ -222,18 +222,29 @@ export function findTextMatchesInEditor(editor, searchTerm) {
 export const FONT_FAMILIES = [
   { label: 'Default', value: '' },
   { label: 'Inter', value: 'Inter, sans-serif' },
-  { label: 'Roboto', value: 'Roboto, sans-serif' },
+  { label: 'Outfit', value: 'Outfit, sans-serif' },
+  { label: 'Plus Jakarta Sans', value: '"Plus Jakarta Sans", sans-serif' },
   { label: 'Poppins', value: 'Poppins, sans-serif' },
+  { label: 'Roboto', value: 'Roboto, sans-serif' },
   { label: 'Open Sans', value: '"Open Sans", sans-serif' },
+  { label: 'Montserrat', value: 'Montserrat, sans-serif' },
+  { label: 'Lato', value: 'Lato, sans-serif' },
+  { label: 'Space Grotesk', value: '"Space Grotesk", sans-serif' },
+  { label: 'Playfair Display', value: '"Playfair Display", serif' },
   { label: 'Merriweather', value: 'Merriweather, serif' },
   { label: 'Georgia', value: 'Georgia, serif' },
+  { label: 'Caveat (Handwriting)', value: 'Caveat, cursive' },
+  { label: 'Fira Code', value: '"Fira Code", monospace' },
   { label: 'Monospace', value: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace' },
 ];
 
 export const FONT_SIZES = [
   { label: 'Default', value: '' },
+  { label: '11', value: '11px' },
   { label: '12', value: '12px' },
+  { label: '13', value: '13px' },
   { label: '14', value: '14px' },
+  { label: '15', value: '15px' },
   { label: '16', value: '16px' },
   { label: '18', value: '18px' },
   { label: '20', value: '20px' },
@@ -243,6 +254,7 @@ export const FONT_SIZES = [
   { label: '36', value: '36px' },
   { label: '48', value: '48px' },
 ];
+
 
 export const HEADING_OPTIONS = [
   { label: 'Paragraph', value: 'paragraph', level: null },

@@ -27,6 +27,20 @@ export function useNotesDb() {
     []
   );
 
+  // Active Note State
+  const activeNoteItem = useLiveQuery(() => db.settings.get('activeNote'));
+  const [activeNoteState, setActiveNoteState] = useState(null);
+
+  useEffect(() => {
+    if (activeNoteItem !== undefined && activeNoteItem !== null && activeNoteItem.value !== undefined) {
+      setActiveNoteState(activeNoteItem.value);
+    }
+  }, [activeNoteItem]);
+
+  // Dark Mode State
+  const darkModeItem = useLiveQuery(() => db.settings.get('darkMode'));
+  const darkMode = darkModeItem ? darkModeItem.value : false;
+
   // One-time migration from localStorage
   useEffect(() => {
     const migrateData = async () => {
@@ -177,16 +191,6 @@ export function useNotesDb() {
     }
   };
 
-  // Active Note State
-  const activeNoteItem = useLiveQuery(() => db.settings.get('activeNote'));
-  const [activeNoteState, setActiveNoteState] = useState(null);
-
-  useEffect(() => {
-    if (activeNoteItem !== undefined && activeNoteItem !== null && activeNoteItem.value !== undefined) {
-      setActiveNoteState(activeNoteItem.value);
-    }
-  }, [activeNoteItem]);
-
   const setActiveNote = async (id) => {
     const val = (id !== null && id !== undefined) ? Number(id) : null;
     setActiveNoteState(val);
@@ -198,10 +202,6 @@ export function useNotesDb() {
       localStorage.removeItem('activeNote');
     }
   };
-
-  // Dark Mode State
-  const darkModeItem = useLiveQuery(() => db.settings.get('darkMode'));
-  const darkMode = darkModeItem ? darkModeItem.value : false;
   
   const setDarkMode = async (isDark) => {
     await db.settings.put({ key: 'darkMode', value: isDark });
@@ -221,4 +221,3 @@ export function useNotesDb() {
     setDarkMode
   };
 }
-

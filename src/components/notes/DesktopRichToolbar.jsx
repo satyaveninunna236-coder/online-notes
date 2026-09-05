@@ -328,7 +328,7 @@ const DesktopRichToolbar = ({ editor, darkMode, rightSlot }) => {
               <ChevronDown size={14} className="opacity-60" />
             </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className={`w-44 ${menuContentClass}`}>
+          <DropdownMenuContent align="start" className={`w-44 max-h-64 overflow-y-auto ${menuContentClass}`}>
             {HEADING_OPTIONS.map((opt) => {
               const selected =
                 opt.value === 'paragraph'
@@ -344,15 +344,15 @@ const DesktopRichToolbar = ({ editor, darkMode, rightSlot }) => {
                       editor.chain().focus().toggleHeading({ level: opt.level }).run();
                     }
                   }}
-                  className={`flex items-center justify-between gap-2 ${darkMode ? 'focus:bg-gray-800' : ''
+                  className={`flex items-center justify-between gap-2 py-1.5 px-2.5 cursor-pointer ${darkMode ? 'focus:bg-gray-800' : ''
                     }`}
                 >
                   <span
                     className={
                       opt.level === 1
-                        ? 'text-lg font-bold'
+                        ? 'text-base font-bold'
                         : opt.level === 2
-                          ? 'text-base font-semibold'
+                          ? 'text-sm font-semibold'
                           : opt.level === 3
                             ? 'text-sm font-semibold'
                             : opt.level === 4
@@ -362,7 +362,7 @@ const DesktopRichToolbar = ({ editor, darkMode, rightSlot }) => {
                   >
                     {opt.label}
                   </span>
-                  {selected && <Check size={14} className="text-blue-500" />}
+                  {selected && <Check size={14} className="text-blue-500 shrink-0" />}
                 </DropdownMenuItem>
               );
             })}
@@ -384,7 +384,7 @@ const DesktopRichToolbar = ({ editor, darkMode, rightSlot }) => {
               <ChevronDown size={14} className="opacity-60" />
             </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className={`w-48 ${menuContentClass}`}>
+          <DropdownMenuContent align="start" className={`w-52 max-h-72 overflow-y-auto ${menuContentClass}`}>
             {FONT_FAMILIES.map((font) => {
               const selected = activeFont.value === font.value;
               return (
@@ -397,12 +397,12 @@ const DesktopRichToolbar = ({ editor, darkMode, rightSlot }) => {
                       editor.chain().focus().setFontFamily(font.value).run();
                     }
                   }}
-                  className={`flex items-center justify-between gap-2 ${darkMode ? 'focus:bg-gray-800' : ''
+                  className={`flex items-center justify-between gap-2 py-1.5 px-2.5 cursor-pointer text-sm ${darkMode ? 'focus:bg-gray-800' : ''
                     }`}
                   style={{ fontFamily: font.value || undefined }}
                 >
-                  <span>{font.label}</span>
-                  {selected && <Check size={14} className="text-blue-500" />}
+                  <span className="truncate">{font.label}</span>
+                  {selected && <Check size={14} className="text-blue-500 shrink-0" />}
                 </DropdownMenuItem>
               );
             })}
@@ -421,7 +421,7 @@ const DesktopRichToolbar = ({ editor, darkMode, rightSlot }) => {
               <ChevronDown size={14} className="opacity-60" />
             </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className={`w-36 ${menuContentClass}`}>
+          <DropdownMenuContent align="start" className={`w-36 max-h-64 overflow-y-auto ${menuContentClass}`}>
             {FONT_SIZES.map((size) => {
               const selected = activeFontSize.value === size.value;
               return (
@@ -434,17 +434,20 @@ const DesktopRichToolbar = ({ editor, darkMode, rightSlot }) => {
                       editor.chain().focus().setFontSize(size.value).run();
                     }
                   }}
-                  className={`flex items-center justify-between gap-2 ${darkMode ? 'focus:bg-gray-800' : ''
+                  className={`flex items-center justify-between gap-2 py-1.5 px-2.5 cursor-pointer text-sm ${darkMode ? 'focus:bg-gray-800' : ''
                     }`}
                 >
-                  <span style={{ fontSize: size.value || '14px' }}>{size.label}</span>
-                  {selected && <Check size={14} className="text-blue-500" />}
+                  <span className="text-sm font-medium">
+                    {size.label === 'Default' ? 'Default (16)' : `${size.label} px`}
+                  </span>
+                  {selected && <Check size={14} className="text-blue-500 shrink-0" />}
                 </DropdownMenuItem>
               );
             })}
           </DropdownMenuContent>
         </DropdownMenu>
       </Group>
+
 
       <Separator darkMode={darkMode} />
 

@@ -130,7 +130,7 @@ relative z-20 w-full max-w-7xl mx-auto">
                 ? 'bg-gradient-to-r from-blue-400 to-cyan-400'
                 : 'bg-gradient-to-r from-blue-700 to-cyan-600'
             }`}>
-              Think. Write. Execute.
+              Think, Write & Execute.
             </span>
           </h1>
 

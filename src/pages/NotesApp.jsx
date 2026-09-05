@@ -5,6 +5,7 @@ import FormattingToolbar from '../components/notes/FormattingToolbar';
 import ImagesGrid from '../components/notes/ImagesGrid';
 import TextEditor from '../components/notes/TextEditor';
 import CommandPalette from '../components/CommandPalette';
+import { splitNoteContent } from '../lib/noteContent';
 import { Lock, Unlock, ShieldOff, X, FileText, Plus } from 'lucide-react';
 import {
   AlertDialog,
@@ -142,15 +143,16 @@ const AppleNotes = () => {
   }, []);
 
   const updateNoteContent = (content) => {
-    const firstLine = (content || '').split('\n')[0] || '';
-    const plainTitle = firstLine.replace(/<[^>]+>/g, '').substring(0, 30);
+    const { title: plainTitle } = splitNoteContent(content || '', currentNote?.title || '');
+    const cleanTitle = (plainTitle || '').replace(/<[^>]+>/g, '').trim();
     dbUpdateNote(activeNote, {
       content,
-      title: plainTitle || 'New Note',
+      title: cleanTitle || 'New Note',
       timestamp: new Date(),
       lastEditedAt: new Date()
     });
   };
+
 
   const updateNoteFormatting = (updates) => {
     dbUpdateNote(activeNote, updates);
@@ -212,20 +214,14 @@ const AppleNotes = () => {
   };
 
   useEffect(() => {
-    // Note: To avoid excessive DB updates, we could just render with appropriate colors
-    // or update them individually here if needed.
-    notes.forEach(n => {
-      if (darkMode && (n.textColor === '#000000' || !n.textColor)) {
-        dbUpdateNote(n.id, { textColor: '#ffffff' });
-      }
-      if (!darkMode && (n.textColor === '#ffffff' || !n.textColor)) {
-        dbUpdateNote(n.id, { textColor: '#000000' });
-      }
-    });
-  }, [darkMode, notes.length]);
+    if (currentNote?.passwordProtected) {
+      setEditor(null);
+    }
+  }, [currentNote?.id, currentNote?.passwordProtected]);
 
   useEffect(() => {
     const handleKeyboard = (e) => {
+
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault();
         setIsCommandPaletteOpen((prev) => !prev);
@@ -375,13 +371,15 @@ const AppleNotes = () => {
   };
 
   const handleRemovePassword = (noteId) => {
+    const note = notes.find(n => n.id === noteId);
     dbUpdateNote(noteId, {
       passwordProtected: false,
       encryptedContent: '',
-      content: n.content
+      content: note?.content || ''
     });
     showToast('Password removed');
   };
+
 
   return (
     <div className={`h-screen flex ${darkMode ? 'bg-[#1a1a1a] text-white' : 'bg-gray-50 text-gray-900'}`}>

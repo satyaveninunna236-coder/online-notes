@@ -3,12 +3,11 @@ import StarterKit from '@tiptap/starter-kit';
 import Link from '@tiptap/extension-link';
 import Placeholder from '@tiptap/extension-placeholder';
 import { TextStyleKit } from '@tiptap/extension-text-style';
-import { Table, TableRow, TableCell, TableHeader } from '@tiptap/extension-table';
-import { Image } from '@tiptap/extension-image';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ensureBodyHtml,
   joinNoteContent,
+  serializeSliceToPlainText,
   splitNoteContent,
 } from '@/lib/noteContent';
 import { SearchExtension } from '@/lib/SearchExtension';
@@ -28,22 +27,6 @@ const createExtensions = () => [
       class: 'rte-link',
       rel: 'noopener noreferrer nofollow',
       target: '_blank',
-    },
-  }),
-  Table.configure({
-    resizable: true,
-    HTMLAttributes: {
-      class: 'rte-table',
-    },
-  }),
-  TableRow,
-  TableHeader,
-  TableCell,
-  Image.configure({
-    inline: true,
-    allowBase64: true,
-    HTMLAttributes: {
-      class: 'rte-image',
     },
   }),
   Placeholder.configure({
@@ -112,17 +95,25 @@ const TextEditor = ({
   onEditorReady,
 }) => {
   const titleRef = useRef(null);
-  const noteIdRef = useRef(currentNote?.id);
+  const noteIdRef = useRef(null);
   const skippingUpdateRef = useRef(false);
   const [, setTimeTick] = useState(0);
 
-  const { title, body } = useMemo(
-    () => splitNoteContent(currentNote?.content || ''),
-    [currentNote?.content]
+  const { title: parsedTitle, body } = useMemo(
+    () => splitNoteContent(currentNote?.content || '', currentNote?.title || ''),
+    [currentNote?.content, currentNote?.title]
   );
 
+  const [localTitle, setLocalTitle] = useState(() => parsedTitle || currentNote?.title || '');
+
+  useEffect(() => {
+    const { title } = splitNoteContent(currentNote?.content || '', currentNote?.title || '');
+    setLocalTitle(title || currentNote?.title || '');
+  }, [currentNote?.id]);
+
   const extensions = useMemo(() => createExtensions(), []);
-  const initialHtml = useMemo(() => ensureBodyHtml(body), [currentNote?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const initialHtml = useMemo(() => ensureBodyHtml(body), []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const interval = setInterval(() => setTimeTick((t) => t + 1), 60000);
@@ -135,10 +126,12 @@ const TextEditor = ({
     immediatelyRender: false,
     editorProps: {
       attributes: {
-        class: `rte-prose outline-none min-h-[240px] px-4 py-3 leading-relaxed tracking-wide ${
-          darkMode ? 'text-gray-200' : 'text-gray-800'
-        }`,
+        class: `rte-prose outline-none min-h-[240px] px-4 py-3 leading-relaxed tracking-wide ${darkMode ? 'text-gray-200' : 'text-gray-800'
+          }`,
         spellcheck: 'false',
+      },
+      clipboardTextSerializer: (slice) => {
+        return serializeSliceToPlainText(slice);
       },
       handlePaste: (_view, event) => {
         const items = event.clipboardData?.items;
@@ -146,55 +139,18 @@ const TextEditor = ({
 
         for (const item of items) {
           if (item.type.indexOf('image') !== -1) {
-            event.preventDefault();
-            const file = item.getAsFile();
-            if (file) {
-              const reader = new FileReader();
-              reader.onload = (e) => {
-                const base64Url = e.target.result;
-                editor?.chain().focus().setImage({ src: base64Url }).run();
-              };
-              reader.readAsDataURL(file);
-              return true;
-            }
-          }
-        }
-        return false;
-      },
-      handleDrop: (view, event, _slice, moved) => {
-        if (!moved && event.dataTransfer?.files?.length) {
-          for (const file of event.dataTransfer.files) {
-            if (file.type.startsWith('image/')) {
-              event.preventDefault();
-              const reader = new FileReader();
-              reader.onload = (e) => {
-                const base64Url = e.target.result;
-                const coordinates = view.posAtCoords({ left: event.clientX, top: event.clientY });
-                if (coordinates) {
-                  view.dispatch(
-                    view.state.tr.insert(
-                      coordinates.pos,
-                      view.state.schema.nodes.image.create({ src: base64Url })
-                    )
-                  );
-                } else {
-                  editor?.chain().focus().setImage({ src: base64Url }).run();
-                }
-              };
-              reader.readAsDataURL(file);
-              return true;
-            }
+            if (handlePaste) handlePaste(event);
+            return true;
           }
         }
         return false;
       },
     },
     onUpdate: ({ editor: ed }) => {
-      if (skippingUpdateRef.current || !currentNote?.id) return;
+      if (skippingUpdateRef.current) return;
       const html = ed.getHTML();
-      const currentTitle =
-        titleRef.current?.value ?? splitNoteContent(currentNote?.content || '').title;
-      updateNoteContent(currentNote.id, joinNoteContent(currentTitle, html === '<p></p>' ? '' : html));
+      const currentTitle = titleRef.current?.value ?? localTitle;
+      updateNoteContent(joinNoteContent(currentTitle, html === '<p></p>' ? '' : html));
     },
   });
 
@@ -205,30 +161,27 @@ const TextEditor = ({
     if (contentRef) {
       contentRef.current = editor
         ? {
-            type: 'tiptap',
-            editor,
-            focus: () => editor.commands.focus(),
-            insertText: (text) => {
-              const needsSpace =
-                editor.state.selection.from > 0 &&
-                !/\s/.test(
-                  editor.state.doc.textBetween(
-                    Math.max(0, editor.state.selection.from - 1),
-                    editor.state.selection.from
-                  )
-                );
-              editor
-                .chain()
-                .focus()
-                .insertContent(needsSpace ? ` ${text}` : text)
-                .run();
-            },
-            insertImage: (src) => {
-              editor.chain().focus().setImage({ src }).run();
-            },
-            getText: () => editor.getText(),
-            getHTML: () => editor.getHTML(),
-          }
+          type: 'tiptap',
+          editor,
+          focus: () => editor.commands.focus(),
+          insertText: (text) => {
+            const needsSpace =
+              editor.state.selection.from > 0 &&
+              !/\s/.test(
+                editor.state.doc.textBetween(
+                  Math.max(0, editor.state.selection.from - 1),
+                  editor.state.selection.from
+                )
+              );
+            editor
+              .chain()
+              .focus()
+              .insertContent(needsSpace ? ` ${text}` : text)
+              .run();
+          },
+          getText: () => editor.getText(),
+          getHTML: () => editor.getHTML(),
+        }
         : null;
     }
 
@@ -246,7 +199,7 @@ const TextEditor = ({
   useEffect(() => {
     if (!editor || !currentNote) return;
 
-    const { body: nextBody } = splitNoteContent(currentNote.content || '');
+    const { body: nextBody } = splitNoteContent(currentNote.content || '', currentNote.title || '');
     const html = ensureBodyHtml(nextBody);
     const switched = noteIdRef.current !== currentNote.id;
 
@@ -262,11 +215,11 @@ const TextEditor = ({
       return;
     }
 
-    const editorEmpty = !editor.getText().trim() && !editor.getHTML().includes('<img') && !editor.getHTML().includes('<table');
+    const editorEmpty = !editor.getText().trim();
     if (editorEmpty && nextBody && nextBody.trim()) {
       apply();
     }
-  }, [currentNote?.id, currentNote?.content, editor]);
+  }, [currentNote?.id, currentNote?.content, editor, currentNote]);
 
   useEffect(() => {
     if (!editor) return;
@@ -275,10 +228,12 @@ const TextEditor = ({
         ...editor.options.editorProps,
         attributes: {
           ...editor.options.editorProps?.attributes,
-          class: `rte-prose outline-none min-h-[240px] px-4 py-3 leading-relaxed tracking-wide ${
-            darkMode ? 'text-gray-200' : 'text-gray-800'
-          }`,
+          class: `rte-prose outline-none min-h-[240px] px-4 py-3 leading-relaxed tracking-wide ${darkMode ? 'text-gray-200' : 'text-gray-800'
+            }`,
           spellcheck: 'false',
+        },
+        clipboardTextSerializer: (slice) => {
+          return serializeSliceToPlainText(slice);
         },
       },
     });
@@ -286,10 +241,9 @@ const TextEditor = ({
 
   const handleTitleChange = (e) => {
     const newTitle = e.target.value.replace(/\n/g, '');
+    setLocalTitle(newTitle);
     const html = editor?.getHTML() || ensureBodyHtml(body);
-    if (currentNote?.id) {
-      updateNoteContent(currentNote.id, joinNoteContent(newTitle, html === '<p></p>' ? '' : html));
-    }
+    updateNoteContent(joinNoteContent(newTitle, html === '<p></p>' ? '' : html));
   };
 
   const handleTitleKeyDown = (e) => {
@@ -307,32 +261,29 @@ const TextEditor = ({
         <input
           ref={titleRef}
           type="text"
-          value={title}
+          value={localTitle}
           onChange={handleTitleChange}
           onKeyDown={handleTitleKeyDown}
           placeholder="New Note"
-          className={`w-full bg-transparent py-1 font-bold outline-none transition-colors duration-200 border-none ${
-            darkMode
+          className={`w-full bg-transparent py-1 font-bold outline-none transition-colors duration-200 border-none ${darkMode
               ? 'text-gray-100 placeholder-gray-600'
               : 'text-gray-900 placeholder-gray-300'
-          }`}
+            }`}
           style={{ fontSize: `${titleFontSize}px` }}
         />
         <p
-          className={`text-xs font-medium tracking-wide mt-0.5 ${
-            darkMode ? 'text-gray-400' : 'text-gray-500'
-          }`}
+          className={`text-xs font-medium tracking-wide mt-0.5 ${darkMode ? 'text-gray-400' : 'text-gray-500'
+            }`}
         >
           {formatNoteTime(currentNote)}
         </p>
       </div>
 
       <div
-        className={`w-full flex-1 rounded-xl transition-colors duration-200 overflow-y-auto ${
-          darkMode
+        className={`w-full flex-1 rounded-xl transition-colors duration-200 overflow-y-auto ${darkMode
             ? 'bg-[#0f0f0f] focus-within:bg-[#111111]'
             : 'bg-[#fafafa] focus-within:bg-white'
-        }`}
+          }`}
         style={{
           fontSize: '16px',
           boxShadow: darkMode
@@ -347,3 +298,4 @@ const TextEditor = ({
 };
 
 export default TextEditor;
+

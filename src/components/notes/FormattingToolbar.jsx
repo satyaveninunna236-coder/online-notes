@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Bold, Italic, Underline, Menu, Lock, Search, ChevronUp, ChevronDown, Fullscreen, ShieldOff, Trash2, Mic, MoreVertical, Check, List, ListOrdered, Palette } from 'lucide-react';
+import { Bold, Italic, Underline, Menu, Lock, Search, ChevronUp, ChevronDown, Fullscreen, ShieldOff, Trash2, Mic, MoreVertical, Check, List, ListOrdered, Palette, Download } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   DropdownMenu,
@@ -16,6 +16,7 @@ import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover
 import AudioRecorder from './AudioRecorder';
 import DesktopRichToolbar from './DesktopRichToolbar';
 import { findTextMatchesInEditor, FONT_SIZES } from '@/lib/noteContent';
+import { usePWAInstall } from '../../hooks/usePWAInstall';
 
 const FormattingToolbar = ({
   currentNote,
@@ -35,9 +36,10 @@ const FormattingToolbar = ({
   const [isColorPickerOpen, setIsColorPickerOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const searchStorage = editor?.storage.search || { results: [], currentIndex: 0 };
-  const totalMatches = searchStorage.results.length;
-  const currentMatchIndex = searchStorage.currentIndex;
+  const hasValidEditor = editor && !editor.isDestroyed;
+  const searchStorage = hasValidEditor ? (editor.storage?.search || { results: [], currentIndex: 0 }) : { results: [], currentIndex: 0 };
+  const totalMatches = searchStorage.results?.length || 0;
+  const currentMatchIndex = searchStorage.currentIndex || 0;
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const settingsRef = useRef(null);
   const mobileSettingsRef = useRef(null);
@@ -47,13 +49,15 @@ const FormattingToolbar = ({
   const [, setEditorTick] = useState(0);
 
   useEffect(() => {
-    if (!editor) return undefined;
+    if (!editor || editor.isDestroyed) return undefined;
     const refresh = () => setEditorTick((t) => t + 1);
     editor.on('selectionUpdate', refresh);
     editor.on('transaction', refresh);
     return () => {
-      editor.off('selectionUpdate', refresh);
-      editor.off('transaction', refresh);
+      if (!editor.isDestroyed) {
+        editor.off('selectionUpdate', refresh);
+        editor.off('transaction', refresh);
+      }
     };
   }, [editor]);
 
@@ -81,16 +85,19 @@ const FormattingToolbar = ({
     { name: 'Gray', value: '#6b7280' },
   ];
 
-  const isBold = editor?.isActive('bold') ?? false;
-  const isItalic = editor?.isActive('italic') ?? false;
-  const isUnderline = editor?.isActive('underline') ?? false;
-  const activeColor = editor?.getAttributes('textStyle')?.color || (darkMode ? '#ffffff' : '#000000');
-  const activeFontSizeValue = editor?.getAttributes('textStyle')?.fontSize || '';
+  const isBold = hasValidEditor ? (editor.isActive('bold') ?? false) : false;
+  const isItalic = hasValidEditor ? (editor.isActive('italic') ?? false) : false;
+  const isUnderline = hasValidEditor ? (editor.isActive('underline') ?? false) : false;
+  const activeColor = hasValidEditor ? (editor.getAttributes('textStyle')?.color || (darkMode ? '#ffffff' : '#000000')) : (darkMode ? '#ffffff' : '#000000');
+  const activeFontSizeValue = hasValidEditor ? (editor.getAttributes('textStyle')?.fontSize || '') : '';
   const activeFontSize =
     FONT_SIZES.find((s) => s.value === activeFontSizeValue) || FONT_SIZES[0];
 
   const menuPanelClass = `w-52 ${darkMode ? 'bg-[#111111] border-gray-700' : 'bg-white border-gray-200'
     }`;
+
+
+  const { isInstallable, installPWA } = usePWAInstall();
 
   const renderSettingsMenuItems = (includeDelete, includeFullscreen = true) => (
     <>
@@ -119,6 +126,25 @@ const FormattingToolbar = ({
           <div className={`h-px my-1 ${darkMode ? 'bg-gray-800' : 'bg-gray-200'}`} />
         </>
       )}
+
+      <DropdownMenuItem
+        onClick={() => {
+          if (isInstallable) {
+            installPWA();
+          } else {
+            const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+            if (isStandalone) {
+              alert('The app is already installed on your device.');
+            } else {
+              alert('To install the app, click the install/download icon in your browser address bar or menu.');
+            }
+          }
+        }}
+        className="cursor-pointer"
+      >
+        <Download className="text-gray-500 mr-2" size={16} />
+        <span>Download App</span>
+      </DropdownMenuItem>
 
       <DropdownMenuItem
         onClick={() => {
@@ -181,6 +207,7 @@ const FormattingToolbar = ({
 
     </>
   );
+
 
   useEffect(() => {
     if (onDropdownStateChange) {

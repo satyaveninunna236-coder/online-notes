@@ -3,11 +3,14 @@
  * Legacy plain-text bodies are converted to HTML on load.
  */
 
-export function splitNoteContent(content = '') {
+export function splitNoteContent(content = '', fallbackTitle = '') {
   const raw = content ?? '';
   const idx = raw.indexOf('\n');
   if (idx === -1) {
-    return { title: raw, body: '' };
+    if (looksLikeHtml(raw)) {
+      return { title: fallbackTitle || '', body: raw };
+    }
+    return { title: raw || fallbackTitle || '', body: '' };
   }
   return {
     title: raw.slice(0, idx),
@@ -18,6 +21,116 @@ export function splitNoteContent(content = '') {
 export function joinNoteContent(title = '', bodyHtml = '') {
   return `${title}\n${bodyHtml ?? ''}`;
 }
+
+/**
+ * Recursively converts a ProseMirror Node or Fragment slice to plain text,
+ * properly formatting bullet lists with '• ' and ordered lists with '1. ', '2. ', etc.
+ */
+function serializeNodeToPlainText(node, listContext = { type: null, index: 1, depth: 0 }) {
+  if (!node) return '';
+
+  if (node.isText) {
+    return node.text || '';
+  }
+
+  const nodeType = node.type?.name;
+  const indent = '  '.repeat(listContext.depth > 1 ? listContext.depth - 1 : 0);
+
+  if (nodeType === 'bulletList') {
+    let result = '';
+    node.forEach((child) => {
+      result += serializeNodeToPlainText(child, {
+        type: 'bullet',
+        index: 1,
+        depth: listContext.depth + 1,
+      });
+    });
+    return result;
+  }
+
+  if (nodeType === 'orderedList') {
+    let result = '';
+    const start = node.attrs?.start || 1;
+    let idx = start;
+    node.forEach((child) => {
+      result += serializeNodeToPlainText(child, {
+        type: 'ordered',
+        index: idx++,
+        depth: listContext.depth + 1,
+      });
+    });
+    return result;
+  }
+
+  if (nodeType === 'listItem') {
+    let itemContent = '';
+    node.forEach((child, i) => {
+      const childText = serializeNodeToPlainText(child, {
+        ...listContext,
+        isFirstInItem: i === 0,
+      });
+      itemContent += childText;
+    });
+
+    const prefix =
+      listContext.type === 'ordered'
+        ? `${indent}${listContext.index}. `
+        : `${indent}• `;
+
+    return `${prefix}${itemContent.trimEnd()}\n`;
+  }
+
+  if (nodeType === 'paragraph' || nodeType === 'heading') {
+    let text = '';
+    node.forEach((child) => {
+      text += serializeNodeToPlainText(child, listContext);
+    });
+    return listContext.type ? text : `${text}\n`;
+  }
+
+  if (nodeType === 'codeBlock') {
+    return `${node.textContent || ''}\n`;
+  }
+
+  if (nodeType === 'table') {
+    let tableText = '';
+    node.forEach((row) => {
+      let rowText = '';
+      row.forEach((cell) => {
+        rowText += `${(cell.textContent || '').trim()}\t`;
+      });
+      tableText += `${rowText.trimEnd()}\n`;
+    });
+    return tableText;
+  }
+
+  let text = '';
+  if (node.forEach) {
+    node.forEach((child) => {
+      text += serializeNodeToPlainText(child, listContext);
+    });
+  } else if (node.content && node.content.forEach) {
+    node.content.forEach((child) => {
+      text += serializeNodeToPlainText(child, listContext);
+    });
+  }
+  return text;
+}
+
+export function serializeSliceToPlainText(slice) {
+  if (!slice) return '';
+  if (typeof slice === 'string') return slice;
+
+  const content = slice.content || slice;
+  let text = '';
+  if (content.forEach) {
+    content.forEach((node) => {
+      text += serializeNodeToPlainText(node);
+    });
+  }
+  return text.trimEnd();
+}
+
 
 export function escapeHtml(text = '') {
   return text

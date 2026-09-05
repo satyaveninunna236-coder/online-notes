@@ -76,6 +76,31 @@ export function useNotesDb() {
     migrateData();
   }, []);
 
+  // Synchronize notes to localStorage whenever notes change
+  useEffect(() => {
+    if (notes && !isMigrating) {
+      try {
+        localStorage.setItem('notes', JSON.stringify(notes));
+      } catch (err) {
+        console.warn('Failed to sync notes to localStorage:', err);
+      }
+    }
+  }, [notes, isMigrating]);
+
+  // Synchronize activeNote to localStorage
+  useEffect(() => {
+    if (activeNoteState !== null && activeNoteState !== undefined) {
+      localStorage.setItem('activeNote', String(activeNoteState));
+    } else {
+      localStorage.removeItem('activeNote');
+    }
+  }, [activeNoteState]);
+
+  // Synchronize darkMode to localStorage
+  useEffect(() => {
+    localStorage.setItem('darkMode', String(darkMode));
+  }, [darkMode]);
+
   const addNote = async (noteData) => {
     const newNote = {
       ...noteData,
@@ -86,35 +111,69 @@ export function useNotesDb() {
       deviceId: 'local',
       version: 1
     };
-    return await db.notes.add(newNote);
+    const id = await db.notes.add(newNote);
+    // Instant localStorage backup
+    try {
+      const current = JSON.parse(localStorage.getItem('notes') || '[]');
+      localStorage.setItem('notes', JSON.stringify([newNote, ...current]));
+    } catch {
+      // Ignore
+    }
+    return id;
   };
 
   const updateNote = async (id, changes) => {
-    return await db.notes.update(id, {
+    const res = await db.notes.update(id, {
       ...changes,
       updatedAt: new Date(),
       syncStatus: 'pending',
       version: changes.version ? changes.version + 1 : 1
     });
+    // Instant localStorage backup
+    try {
+      const current = JSON.parse(localStorage.getItem('notes') || '[]');
+      const updated = current.map(n => Number(n.id) === Number(id) ? { ...n, ...changes, updatedAt: new Date() } : n);
+      localStorage.setItem('notes', JSON.stringify(updated));
+    } catch {
+      // Ignore
+    }
+    return res;
   };
 
   const deleteNote = async (id) => {
     // Soft delete for sync purposes
-    return await db.notes.update(id, {
+    const res = await db.notes.update(id, {
       deleted: true,
       updatedAt: new Date(),
       syncStatus: 'pending'
     });
+    // Instant localStorage backup
+    try {
+      const current = JSON.parse(localStorage.getItem('notes') || '[]');
+      const updated = current.filter(n => Number(n.id) !== Number(id));
+      localStorage.setItem('notes', JSON.stringify(updated));
+    } catch {
+      // Ignore
+    }
+    return res;
   };
 
   const togglePin = async (id) => {
     const note = await db.notes.get(id);
     if (note) {
-      return await db.notes.update(id, {
+      const res = await db.notes.update(id, {
         isPinned: !note.isPinned,
         updatedAt: new Date(),
         syncStatus: 'pending'
       });
+      try {
+        const current = JSON.parse(localStorage.getItem('notes') || '[]');
+        const updated = current.map(n => Number(n.id) === Number(id) ? { ...n, isPinned: !n.isPinned } : n);
+        localStorage.setItem('notes', JSON.stringify(updated));
+      } catch {
+        // Ignore
+      }
+      return res;
     }
   };
 
@@ -133,8 +192,10 @@ export function useNotesDb() {
     setActiveNoteState(val);
     if (val !== null) {
       await db.settings.put({ key: 'activeNote', value: val });
+      localStorage.setItem('activeNote', String(val));
     } else {
       await db.settings.put({ key: 'activeNote', value: null });
+      localStorage.removeItem('activeNote');
     }
   };
 
@@ -144,6 +205,7 @@ export function useNotesDb() {
   
   const setDarkMode = async (isDark) => {
     await db.settings.put({ key: 'darkMode', value: isDark });
+    localStorage.setItem('darkMode', String(isDark));
   };
 
   return {
@@ -159,3 +221,4 @@ export function useNotesDb() {
     setDarkMode
   };
 }
+

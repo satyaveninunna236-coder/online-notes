@@ -133,13 +133,15 @@ const DesktopRichToolbar = ({ editor, darkMode, rightSlot }) => {
   const fileInputRef = useRef(null);
 
   useEffect(() => {
-    if (!editor) return undefined;
+    if (!editor || editor.isDestroyed) return undefined;
     const refresh = () => setTick((t) => t + 1);
     editor.on('selectionUpdate', refresh);
     editor.on('transaction', refresh);
     return () => {
-      editor.off('selectionUpdate', refresh);
-      editor.off('transaction', refresh);
+      if (!editor.isDestroyed) {
+        editor.off('selectionUpdate', refresh);
+        editor.off('transaction', refresh);
+      }
     };
   }, [editor]);
 
@@ -149,10 +151,12 @@ const DesktopRichToolbar = ({ editor, darkMode, rightSlot }) => {
 
   const mod = isMac ? '⌘' : 'Ctrl';
 
-  const isTableActive = editor?.isActive('table');
+  const hasValidEditor = editor && !editor.isDestroyed;
+
+  const isTableActive = hasValidEditor ? editor.isActive('table') : false;
 
   const activeHeading = (() => {
-    if (!editor) return HEADING_OPTIONS[0];
+    if (!hasValidEditor) return HEADING_OPTIONS[0];
     for (const opt of HEADING_OPTIONS) {
       if (opt.value === 'paragraph') {
         if (editor.isActive('paragraph')) return opt;
@@ -164,7 +168,7 @@ const DesktopRichToolbar = ({ editor, darkMode, rightSlot }) => {
   })();
 
   const activeFont = (() => {
-    if (!editor) return FONT_FAMILIES[0];
+    if (!hasValidEditor) return FONT_FAMILIES[0];
     const current = editor.getAttributes('textStyle').fontFamily || '';
     return (
       FONT_FAMILIES.find((f) => f.value === current) ||
@@ -174,17 +178,17 @@ const DesktopRichToolbar = ({ editor, darkMode, rightSlot }) => {
   })();
 
   const activeFontSize = (() => {
-    if (!editor) return FONT_SIZES[0];
+    if (!hasValidEditor) return FONT_SIZES[0];
     const current = editor.getAttributes('textStyle').fontSize || '';
     return FONT_SIZES.find((s) => s.value === current) || FONT_SIZES[0];
   })();
 
-  const activeColor = editor?.getAttributes('textStyle').color || '';
-  const isLinkActive = editor?.isActive('link');
-  const currentLinkHref = editor?.getAttributes('link').href || '';
+  const activeColor = hasValidEditor ? (editor.getAttributes('textStyle').color || '') : '';
+  const isLinkActive = hasValidEditor ? editor.isActive('link') : false;
+  const currentLinkHref = hasValidEditor ? (editor.getAttributes('link').href || '') : '';
 
   const openLinkPopover = useCallback(() => {
-    if (!editor) return;
+    if (!editor || editor.isDestroyed) return;
     const { from, to } = editor.state.selection;
     savedSelectionRef.current = { from, to };
     setLinkUrl(editor.getAttributes('link').href || '');
@@ -192,7 +196,7 @@ const DesktopRichToolbar = ({ editor, darkMode, rightSlot }) => {
   }, [editor]);
 
   const applyLink = useCallback(() => {
-    if (!editor) return;
+    if (!editor || editor.isDestroyed) return;
     const normalized = normalizeUrl(linkUrl);
     if (!normalized) {
       setLinkError('Enter a valid URL (e.g. https://example.com)');
@@ -230,7 +234,7 @@ const DesktopRichToolbar = ({ editor, darkMode, rightSlot }) => {
   }, [editor, linkUrl]);
 
   const removeLink = useCallback(() => {
-    if (!editor) return;
+    if (!editor || editor.isDestroyed) return;
     editor.chain().focus().extendMarkRange('link').unsetLink().run();
     setLinkOpen(false);
   }, [editor]);
@@ -244,7 +248,7 @@ const DesktopRichToolbar = ({ editor, darkMode, rightSlot }) => {
 
   const handleInsertImageFile = (e) => {
     const file = e.target.files?.[0];
-    if (file && editor) {
+    if (file && editor && !editor.isDestroyed) {
       const reader = new FileReader();
       reader.onload = (event) => {
         const base64Url = event.target.result;
@@ -257,7 +261,7 @@ const DesktopRichToolbar = ({ editor, darkMode, rightSlot }) => {
   };
 
   const applyImageUrl = () => {
-    if (!editor) return;
+    if (!editor || editor.isDestroyed) return;
     const normalized = normalizeUrl(imageUrl);
     if (!normalized) {
       setImageError('Enter a valid image URL');
@@ -269,10 +273,17 @@ const DesktopRichToolbar = ({ editor, darkMode, rightSlot }) => {
     setImageOpen(false);
   };
 
-  if (!editor) return null;
+  if (!hasValidEditor) {
+    return (
+      <div className="hidden lg:flex items-center justify-start gap-2 flex-wrap">
+        {rightSlot}
+      </div>
+    );
+  }
 
   const canUndo = editor.can().undo();
   const canRedo = editor.can().redo();
+
 
   const triggerClass = `h-9 px-2.5 flex items-center gap-1.5 rounded-2xl text-sm font-medium transition-all duration-150 active:scale-95 ${darkMode
       ? 'hover:bg-gray-700 text-gray-300'

@@ -37,6 +37,7 @@ const AppleNotes = () => {
   const [sidebarWidth, setSidebarWidth] = useState(280);
   const [isResizing, setIsResizing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   // Global formating state removed - moved to individual notes
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
@@ -59,6 +60,16 @@ const AppleNotes = () => {
       setToast({ visible: false, message: '' });
     }, 2500);
   }, []);
+
+  useEffect(() => {
+    const handleToastEvent = (e) => {
+      if (e.detail) {
+        showToast(e.detail);
+      }
+    };
+    window.addEventListener('app-toast', handleToastEvent);
+    return () => window.removeEventListener('app-toast', handleToastEvent);
+  }, [showToast]);
 
   const currentNote = notes?.find(n => Number(n.id) === Number(activeNote)) || (notes?.length > 0 ? notes[0] : null);
 
@@ -227,6 +238,18 @@ const AppleNotes = () => {
         setIsCommandPaletteOpen((prev) => !prev);
       }
 
+      // Search in note: Cmd+F or Ctrl+F
+      if ((e.metaKey || e.ctrlKey) && !e.shiftKey && e.key.toLowerCase() === 'f') {
+        e.preventDefault();
+        setIsSearchOpen(true);
+      }
+
+      // Fullscreen: Cmd+Shift+F or Ctrl+Shift+F or F11
+      if (((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'f') || e.key === 'F11') {
+        e.preventDefault();
+        setIsFullscreen((prev) => !prev);
+      }
+
       if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
         e.preventDefault();
         addNote();
@@ -382,7 +405,7 @@ const AppleNotes = () => {
 
 
   return (
-    <div className={`h-screen flex ${darkMode ? 'bg-[#1a1a1a] text-white' : 'bg-gray-50 text-gray-900'}`}>
+    <div className={`h-screen flex ${darkMode ? 'dark bg-[#1a1a1a] text-white' : 'bg-gray-50 text-gray-900'}`}>
       <div className="flex-1 flex relative overflow-hidden">
         {!isFullscreen && (
           <Sidebar
@@ -413,7 +436,7 @@ const AppleNotes = () => {
         )}
 
         {/* Main Editor Area */}
-        <main className={`flex-1 flex flex-col min-w-0 ${darkMode ? 'bg-[#1a1a1a]' : 'bg-white'
+        <main className={`flex-1 flex flex-col min-w-0 ${darkMode ? 'bg-[#1a1a1a]' : 'bg-gray-50'
           }`}>
           {currentNote ? (
             <>
@@ -459,6 +482,9 @@ const AppleNotes = () => {
                     onDropdownStateChange={setIsDropdownOpen}
                     isFullscreen={isFullscreen}
                     setIsFullscreen={setIsFullscreen}
+                    isSearchOpen={isSearchOpen}
+                    setIsSearchOpen={setIsSearchOpen}
+                    showToast={showToast}
                   />
 
                   <div className="flex-1 overflow-y-auto">

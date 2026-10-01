@@ -110,9 +110,12 @@ export function useNotesDb() {
     }
   }, [activeNoteState]);
 
-  // Synchronize darkMode to localStorage
+  // Synchronize darkMode to localStorage and documentElement
   useEffect(() => {
     localStorage.setItem('darkMode', String(darkMode));
+    if (typeof document !== 'undefined') {
+      document.documentElement.classList.toggle('dark', Boolean(darkMode));
+    }
   }, [darkMode]);
 
   const addNote = async (noteData) => {

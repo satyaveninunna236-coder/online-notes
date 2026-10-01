@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Bold, Italic, Underline, Menu, Lock, Search, ChevronUp, ChevronDown, Fullscreen, ShieldOff, Trash2, Mic, MoreVertical, Check, List, ListOrdered, Palette, Download } from 'lucide-react';
+import { Bold, Italic, Underline, Menu, Lock, Search, ChevronUp, ChevronDown, Fullscreen, ShieldOff, Trash2, Mic, MoreVertical, Check, List, ListOrdered, Palette, Download, Wifi, WifiOff } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   DropdownMenu,
@@ -17,6 +17,7 @@ import AudioRecorder from './AudioRecorder';
 import DesktopRichToolbar from './DesktopRichToolbar';
 import { findTextMatchesInEditor, FONT_SIZES } from '@/lib/noteContent';
 import { usePWAInstall } from '../../hooks/usePWAInstall';
+import { useNetwork } from '../../context/useNetwork';
 
 const FormattingToolbar = ({
   currentNote,
@@ -31,11 +32,25 @@ const FormattingToolbar = ({
   onDropdownStateChange,
   isFullscreen,
   setIsFullscreen,
+  isSearchOpen: propIsSearchOpen,
+  setIsSearchOpen: propSetIsSearchOpen,
+  showToast,
 }) => {
   const [isAudioRecorderOpen, setIsAudioRecorderOpen] = useState(false);
   const [isColorPickerOpen, setIsColorPickerOpen] = useState(false);
-  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [localSearchOpen, setLocalSearchOpen] = useState(false);
+  const isSearchOpen = propIsSearchOpen !== undefined ? propIsSearchOpen : localSearchOpen;
+  const setIsSearchOpen = propSetIsSearchOpen || setLocalSearchOpen;
   const [searchQuery, setSearchQuery] = useState('');
+  const { isOnline, wasOffline } = useNetwork();
+
+  const triggerToast = useCallback((msg) => {
+    if (showToast) {
+      showToast(msg);
+    } else if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('app-toast', { detail: msg }));
+    }
+  }, [showToast]);
   const hasValidEditor = editor && !editor.isDestroyed;
   const searchStorage = hasValidEditor ? (editor.storage?.search || { results: [], currentIndex: 0 }) : { results: [], currentIndex: 0 };
   const totalMatches = searchStorage.results?.length || 0;
@@ -93,39 +108,78 @@ const FormattingToolbar = ({
   const activeFontSize =
     FONT_SIZES.find((s) => s.value === activeFontSizeValue) || FONT_SIZES[0];
 
-  const menuPanelClass = `w-52 ${darkMode ? 'bg-[#111111] border-gray-700' : 'bg-white border-gray-200'
-    }`;
+  const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad|iPod/.test(navigator.platform || '');
 
+  const menuPanelClass = `w-60 ${darkMode ? 'bg-[#18181b] border-gray-700/80 text-gray-100' : 'bg-white border-gray-200 text-gray-900 shadow-xl'
+    }`;
 
   const { isInstallable, installPWA } = usePWAInstall();
 
   const renderSettingsMenuItems = (includeDelete, includeFullscreen = true) => (
     <>
+      {includeFullscreen && (
+        <DropdownMenuItem
+          onClick={() => {
+            setIsFullscreen(!isFullscreen);
+          }}
+          className="cursor-pointer flex items-center justify-between"
+        >
+          <div className="flex items-center">
+            <Fullscreen className={`mr-2 ${isFullscreen ? 'text-blue-500' : 'text-gray-500'}`} size={16} />
+            <span>{isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}</span>
+          </div>
+          <kbd className="text-[10px] tracking-wide px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-gray-500 font-sans border border-gray-200 dark:border-gray-700">
+            {isMac ? '⌘⇧F' : 'Ctrl+⇧+F'}
+          </kbd>
+        </DropdownMenuItem>
+      )}
+
       <DropdownMenuItem
         onClick={() => {
           setIsSearchOpen(true);
+          setTimeout(() => {
+            searchInputRef.current?.focus();
+            searchInputRef.current?.select?.();
+          }, 50);
         }}
-        className="cursor-pointer"
+        className="cursor-pointer flex items-center justify-between"
       >
-        <Search className="text-gray-500 mr-2" size={16} />
-        <span>Search in note</span>
+        <div className="flex items-center">
+          <Search className="text-gray-500 mr-2" size={16} />
+          <span>Search</span>
+        </div>
+        <kbd className="text-[10px] tracking-wide px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-gray-500 font-sans border border-gray-200 dark:border-gray-700">
+          {isMac ? '⌘F' : 'Ctrl+F'}
+        </kbd>
       </DropdownMenuItem>
 
-      {includeFullscreen && (
-        <>
-          <DropdownMenuItem
-            onClick={() => {
-              setIsFullscreen(!isFullscreen);
-            }}
-            className="cursor-pointer"
-          >
-            <Fullscreen className={`mr-2 ${isFullscreen ? 'text-blue-500' : 'text-gray-500'}`} size={16} />
-            <span>{isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}</span>
-          </DropdownMenuItem>
+      <div className={`px-2.5 py-2 my-1 flex items-center justify-between text-xs select-none rounded-lg ${darkMode ? 'bg-gray-800/40' : 'bg-gray-50'}`}>
+        <div className="flex items-center gap-2">
+          <span
+            className={`w-2 h-2 rounded-full shrink-0 ${
+              !isOnline
+                ? 'bg-red-500 animate-pulse'
+                : wasOffline
+                ? 'bg-green-500'
+                : 'bg-emerald-500'
+            }`}
+          />
+          <span className={`font-medium ${!isOnline ? 'text-red-600 dark:text-red-400' : 'text-gray-700 dark:text-gray-300'}`}>
+            {!isOnline
+              ? 'Internet connection lost'
+              : wasOffline
+              ? 'Internet connected'
+              : 'Internet connected'}
+          </span>
+        </div>
+        {!isOnline ? (
+          <WifiOff size={14} className="text-red-500 shrink-0" />
+        ) : (
+          <Wifi size={14} className={`shrink-0 ${wasOffline ? 'text-green-500' : 'text-gray-400'}`} />
+        )}
+      </div>
 
-          <div className={`h-px my-1 ${darkMode ? 'bg-gray-800' : 'bg-gray-200'}`} />
-        </>
-      )}
+      <div className={`h-px my-1 ${darkMode ? 'bg-gray-800' : 'bg-gray-100'}`} />
 
       <DropdownMenuItem
         onClick={() => {
@@ -134,9 +188,9 @@ const FormattingToolbar = ({
           } else {
             const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
             if (isStandalone) {
-              alert('The app is already installed on your device.');
+              triggerToast('The app is already installed on your device.');
             } else {
-              alert('To install the app, click the install/download icon in your browser address bar or menu.');
+              triggerToast('To install the app, click the install/download icon in your browser address bar or menu.');
             }
           }
         }}
@@ -182,7 +236,7 @@ const FormattingToolbar = ({
 
       {includeDelete && (
         <>
-          <div className={`h-px my-1 ${darkMode ? 'bg-gray-800' : 'bg-gray-200'}`} />
+          <div className={`h-px my-1 ${darkMode ? 'bg-gray-800' : 'bg-gray-100'}`} />
           <DropdownMenuItem
             onClick={() => {
               // Defer the event dispatch to prevent Radix UI pointer-events lock collisions.
@@ -204,7 +258,6 @@ const FormattingToolbar = ({
           </DropdownMenuItem>
         </>
       )}
-
     </>
   );
 
@@ -256,7 +309,10 @@ const FormattingToolbar = ({
       if (e.key === 'Escape') {
         setIsSearchOpen(false);
         setSearchQuery('');
-        if (editor) editor.commands.clearSearch();
+        if (editor) {
+          editor.commands.clearSearch();
+          editor.commands.focus();
+        }
         return;
       }
 
@@ -275,7 +331,16 @@ const FormattingToolbar = ({
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [isSearchOpen, searchQuery, totalMatches, currentMatchIndex, navigateMatch]);
+  }, [isSearchOpen, searchQuery, totalMatches, currentMatchIndex, navigateMatch, setIsSearchOpen, editor]);
+
+  useEffect(() => {
+    if (isSearchOpen) {
+      setTimeout(() => {
+        searchInputRef.current?.focus();
+        searchInputRef.current?.select?.();
+      }, 50);
+    }
+  }, [isSearchOpen]);
 
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -296,7 +361,7 @@ const FormattingToolbar = ({
 
   return (
     <>
-      <div className={`relative flex flex-col border-b w-full ${darkMode ? 'border-gray-800 bg-[#1a1a1a]' : 'border-gray-100 bg-white'
+      <div className={`relative flex flex-col border-b w-full ${darkMode ? 'border-gray-800 bg-[#1a1a1a]' : 'border-gray-200/60 bg-gray-50'
         }`}>
         <div className={`flex items-center justify-between px-3 py-2 gap-2`}>
           <div className="flex items-center gap-2">

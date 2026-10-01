@@ -3,6 +3,8 @@ import StarterKit from '@tiptap/starter-kit';
 import Link from '@tiptap/extension-link';
 import Placeholder from '@tiptap/extension-placeholder';
 import { TextStyleKit } from '@tiptap/extension-text-style';
+import { Table, TableRow, TableCell, TableHeader } from '@tiptap/extension-table';
+import { Image } from '@tiptap/extension-image';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ensureBodyHtml,
@@ -18,6 +20,22 @@ const createExtensions = () => [
     link: false,
   }),
   TextStyleKit,
+  Table.configure({
+    resizable: true,
+    HTMLAttributes: {
+      class: 'rte-table',
+    },
+  }),
+  TableRow,
+  TableHeader,
+  TableCell,
+  Image.configure({
+    inline: true,
+    allowBase64: true,
+    HTMLAttributes: {
+      class: 'rte-image',
+    },
+  }),
   Link.configure({
     openOnClick: false,
     autolink: true,
@@ -179,6 +197,12 @@ const TextEditor = ({
               .insertContent(needsSpace ? ` ${text}` : text)
               .run();
           },
+          insertTable: (options = { rows: 3, cols: 3, withHeaderRow: true }) => {
+            editor.chain().focus().insertTable(options).run();
+          },
+          insertImage: (src) => {
+            editor.chain().focus().setImage({ src }).run();
+          },
           getText: () => editor.getText(),
           getHTML: () => editor.getHTML(),
         }
@@ -215,11 +239,13 @@ const TextEditor = ({
       return;
     }
 
-    const editorEmpty = !editor.getText().trim();
+    // Do NOT wipe editor content if editor has tables or images with no plain text
+    const hasVisualNodes = editor.getHTML().includes('<table') || editor.getHTML().includes('<img');
+    const editorEmpty = !editor.getText().trim() && !hasVisualNodes;
     if (editorEmpty && nextBody && nextBody.trim()) {
       apply();
     }
-  }, [currentNote?.id, currentNote?.content, editor, currentNote]);
+  }, [currentNote?.id, currentNote?.content, editor]);
 
   useEffect(() => {
     if (!editor) return;
@@ -280,15 +306,15 @@ const TextEditor = ({
       </div>
 
       <div
-        className={`w-full flex-1 rounded-xl transition-colors duration-200 overflow-y-auto ${darkMode
+        className={`w-full flex-1 rounded-2xl transition-colors duration-200 overflow-y-auto ${darkMode
             ? 'bg-[#0f0f0f] focus-within:bg-[#111111]'
-            : 'bg-[#fafafa] focus-within:bg-white'
+            : 'bg-white focus-within:bg-white shadow-xs'
           }`}
         style={{
           fontSize: '16px',
           boxShadow: darkMode
             ? 'inset 0 0 0 1px rgba(255,255,255,0.05)'
-            : 'inset 0 0 0 1px rgba(0,0,0,0.05)',
+            : 'inset 0 0 0 1px rgba(0,0,0,0.06)',
         }}
       >
         <EditorContent editor={editor} />

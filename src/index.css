@@ -1,5 +1,50 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:is(.dark *));
+
+/* Explicit Dropdown & Popover styling for light and dark modes */
+[data-slot="dropdown-menu-content"],
+[data-slot="dropdown-menu-sub-content"],
+[data-slot="popover-content"] {
+  background-color: #ffffff !important;
+  color: #111827 !important;
+  border-color: #e5e7eb !important;
+}
+
+.dark [data-slot="dropdown-menu-content"],
+.dark [data-slot="dropdown-menu-sub-content"],
+.dark [data-slot="popover-content"],
+:is(.dark *) [data-slot="dropdown-menu-content"],
+:is(.dark *) [data-slot="dropdown-menu-sub-content"],
+:is(.dark *) [data-slot="popover-content"] {
+  background-color: #18181b !important;
+  color: #f3f4f6 !important;
+  border-color: rgba(55, 65, 81, 0.8) !important;
+}
+
+[data-slot="dropdown-menu-item"] {
+  color: #111827 !important;
+}
+
+[data-slot="dropdown-menu-item"]:hover,
+[data-slot="dropdown-menu-item"]:focus {
+  background-color: #f3f4f6 !important;
+  color: #111827 !important;
+}
+
+.dark [data-slot="dropdown-menu-item"],
+:is(.dark *) [data-slot="dropdown-menu-item"] {
+  color: #f3f4f6 !important;
+}
+
+.dark [data-slot="dropdown-menu-item"]:hover,
+.dark [data-slot="dropdown-menu-item"]:focus,
+:is(.dark *) [data-slot="dropdown-menu-item"]:hover,
+:is(.dark *) [data-slot="dropdown-menu-item"]:focus {
+  background-color: #27272a !important;
+  color: #ffffff !important;
+}
+
 /* TipTap / ProseMirror editor */
 .ProseMirror {
   outline: none;
@@ -134,12 +179,22 @@
 .rte-table th {
   font-weight: 600;
   text-align: left;
-  background-color: #f8fafc;
+  background-color: #f1f5f9;
 }
 
 .dark .rte-prose table th,
 .dark .rte-table th {
   background-color: #1f2937;
+}
+
+.rte-prose table td,
+.rte-table td {
+  background-color: #ffffff;
+}
+
+.dark .rte-prose table td,
+.dark .rte-table td {
+  background-color: #121214;
 }
 
 .rte-table .selectedCell:after {

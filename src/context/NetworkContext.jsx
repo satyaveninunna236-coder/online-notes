@@ -3,42 +3,86 @@ import { heartbeat } from '../services/heartbeat';
 import { networkQueue } from '../services/networkQueue';
 import { NetworkContext } from './network-context';
 
-const details = () => {
-  const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
-  const type = connection?.effectiveType || connection?.type || 'unknown';
-  return { connectionType: type, networkQuality: !connection ? 'unknown' : connection.downlink < 1 || connection.rtt > 800 ? 'slow' : 'good' };
-};
-
 export function NetworkProvider({ children, heartbeatUrl, onFlushQueue }) {
-  const [state, setState] = useState(() => ({ status: navigator.onLine ? 'reconnecting' : 'offline', serverReachable: false, lastOnlineAt: null, lastOfflineAt: navigator.onLine ? null : new Date().toISOString(), queuedCount: networkQueue.count(), ...details() }));
-  const checking = useRef(false); const retryTimer = useRef(); const retryAttempt = useRef(0);
-  const verify = useCallback(async ({ retry = false } = {}) => {
-    if (checking.current) return false;
-    if (!navigator.onLine) { setState(s => ({ ...s, status: 'offline', serverReachable: false, lastOfflineAt: new Date().toISOString() })); return false; }
-    checking.current = true; setState(s => ({ ...s, status: 'reconnecting' }));
-    const result = await heartbeat(heartbeatUrl); checking.current = false;
-    if (result.reachable) {
-      retryAttempt.current = 0;
-      setState(s => ({ ...s, status: 'online', serverReachable: true, latency: result.latency, lastOnlineAt: new Date().toISOString(), ...details() }));
-      if (onFlushQueue) { await networkQueue.flush(onFlushQueue); setState(s => ({ ...s, queuedCount: networkQueue.count() })); }
-      return true;
+  const [isOnline, setIsOnline] = useState(() => (typeof navigator !== 'undefined' ? navigator.onLine : true));
+  const [wasOffline, setWasOffline] = useState(false);
+  const [serverReachable, setServerReachable] = useState(true);
+  const [queuedCount, setQueuedCount] = useState(() => networkQueue.count());
+
+  const checking = useRef(false);
+
+  const checkServer = useCallback(async () => {
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      // Do not attempt or claim server is down when the user is simply offline
+      return;
     }
-    setState(s => ({ ...s, status: 'server-unreachable', serverReachable: false, ...details() }));
-    // 1s, 2s, 4s, 8s; then wait for an explicit retry or a browser network event.
-    if (retry && retryAttempt.current < 4) {
-      const delay = 1_000 * (2 ** retryAttempt.current++);
-      retryTimer.current = window.setTimeout(() => verify({ retry: true }), delay);
+    if (checking.current) return;
+
+    // Only test heartbeat if an explicit URL is provided
+    const targetUrl = heartbeatUrl || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_HEARTBEAT_URL);
+    if (!targetUrl) {
+      setServerReachable(true);
+      return;
     }
-    return false;
+
+    checking.current = true;
+    try {
+      const result = await heartbeat(targetUrl);
+      setServerReachable(Boolean(result?.reachable));
+      if (result?.reachable && onFlushQueue) {
+        await networkQueue.flush(onFlushQueue);
+        setQueuedCount(networkQueue.count());
+      }
+    } catch {
+      setServerReachable(false);
+    } finally {
+      checking.current = false;
+    }
   }, [heartbeatUrl, onFlushQueue]);
+
   useEffect(() => {
-    const online = () => verify({ retry: true }); const offline = () => setState(s => ({ ...s, status: 'offline', serverReachable: false, lastOfflineAt: new Date().toISOString() }));
-    // Tab focus/visibility does not mean the network changed. Rechecking there caused
-    // distracting "reconnecting" and "back online" messages while simply switching tabs.
-    window.addEventListener('online', online); window.addEventListener('offline', offline);
-    const interval = window.setInterval(() => document.visibilityState === 'visible' && verify(), 30_000); verify({ retry: true });
-    return () => { window.removeEventListener('online', online); window.removeEventListener('offline', offline); window.clearInterval(interval); window.clearTimeout(retryTimer.current); };
-  }, [verify]);
-  const value = useMemo(() => ({ ...state, isOnline: state.status === 'online', isOffline: state.status === 'offline', isReconnecting: state.status === 'reconnecting', retryConnection: () => { retryAttempt.current = 0; return verify({ retry: true }); }, reportRequestFailure: () => navigator.onLine && setState(s => ({ ...s, status: 'server-unreachable', serverReachable: false })), enqueueRequest: item => { const id = networkQueue.enqueue(item); setState(s => ({ ...s, queuedCount: networkQueue.count() })); return id; } }), [state, verify]);
+    const handleOnline = () => {
+      setIsOnline(true);
+      setWasOffline(true);
+      checkServer();
+    };
+
+    const handleOffline = () => {
+      setIsOnline(false);
+      // User lost connection. Do NOT mark server as offline.
+    };
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    // Initial check only if online
+    if (typeof navigator !== 'undefined' && navigator.onLine) {
+      checkServer();
+    }
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, [checkServer]);
+
+  const value = useMemo(() => {
+    const status = !isOnline ? 'offline' : wasOffline ? 'reconnected' : 'online';
+    return {
+      isOnline,
+      wasOffline,
+      serverReachable,
+      queuedCount,
+      status: !isOnline ? 'offline' : 'online',
+      internetStatus: status,
+      retryConnection: () => checkServer(),
+      enqueueRequest: (item) => {
+        const id = networkQueue.enqueue(item);
+        setQueuedCount(networkQueue.count());
+        return id;
+      },
+    };
+  }, [isOnline, wasOffline, serverReachable, queuedCount, checkServer]);
+
   return <NetworkContext.Provider value={value}>{children}</NetworkContext.Provider>;
 }

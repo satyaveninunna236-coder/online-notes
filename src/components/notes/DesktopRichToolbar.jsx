@@ -132,9 +132,43 @@ const DesktopRichToolbar = ({ editor, darkMode, rightSlot }) => {
   const savedSelectionRef = React.useRef(null);
   const fileInputRef = useRef(null);
 
+  const saveCurrentSelection = useCallback(() => {
+    if (editor && !editor.isDestroyed) {
+      savedSelectionRef.current = {
+        from: editor.state.selection.from,
+        to: editor.state.selection.to,
+      };
+    }
+  }, [editor]);
+
+  const runWithSavedSelection = useCallback((fn) => {
+    if (!editor || editor.isDestroyed) return;
+    const sel = savedSelectionRef.current;
+    let chain = editor.chain().focus();
+    if (sel && typeof sel.from === 'number' && typeof sel.to === 'number') {
+      try {
+        const docSize = editor.state.doc.content.size;
+        const from = Math.min(Math.max(0, sel.from), docSize);
+        const to = Math.min(Math.max(from, sel.to), docSize);
+        chain = chain.setTextSelection({ from, to });
+      } catch {
+        // Fallback to regular focus
+      }
+    }
+    fn(chain).run();
+  }, [editor]);
+
   useEffect(() => {
     if (!editor || editor.isDestroyed) return undefined;
-    const refresh = () => setTick((t) => t + 1);
+    const refresh = () => {
+      setTick((t) => t + 1);
+      if (editor.isFocused) {
+        savedSelectionRef.current = {
+          from: editor.state.selection.from,
+          to: editor.state.selection.to,
+        };
+      }
+    };
     editor.on('selectionUpdate', refresh);
     editor.on('transaction', refresh);
     return () => {
@@ -252,7 +286,7 @@ const DesktopRichToolbar = ({ editor, darkMode, rightSlot }) => {
       const reader = new FileReader();
       reader.onload = (event) => {
         const base64Url = event.target.result;
-        editor.chain().focus().setImage({ src: base64Url }).run();
+        runWithSavedSelection((chain) => chain.setImage({ src: base64Url }));
       };
       reader.readAsDataURL(file);
     }
@@ -267,7 +301,7 @@ const DesktopRichToolbar = ({ editor, darkMode, rightSlot }) => {
       setImageError('Enter a valid image URL');
       return;
     }
-    editor.chain().focus().setImage({ src: normalized }).run();
+    runWithSavedSelection((chain) => chain.setImage({ src: normalized }));
     setImageUrl('');
     setImageError('');
     setImageOpen(false);
@@ -603,6 +637,8 @@ const DesktopRichToolbar = ({ editor, darkMode, rightSlot }) => {
                 <button
                   type="button"
                   aria-label="Table"
+                  onPointerDown={saveCurrentSelection}
+                  onClick={saveCurrentSelection}
                   className={`w-9 h-9 flex items-center justify-center rounded-2xl transition-all duration-150 active:scale-95 ${
                     isTableActive
                       ? 'bg-blue-600 text-white'
@@ -619,11 +655,20 @@ const DesktopRichToolbar = ({ editor, darkMode, rightSlot }) => {
               <p>Table options</p>
             </TooltipContent>
           </Tooltip>
-          <DropdownMenuContent align="start" className={`w-48 ${menuContentClass}`}>
+          <DropdownMenuContent
+            align="start"
+            className={`w-48 ${menuContentClass}`}
+            onCloseAutoFocus={(e) => {
+              e.preventDefault();
+              editor?.commands.focus();
+            }}
+          >
             {!isTableActive ? (
               <DropdownMenuItem
                 onClick={() =>
-                  editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()
+                  runWithSavedSelection((chain) =>
+                    chain.insertTable({ rows: 3, cols: 3, withHeaderRow: true })
+                  )
                 }
               >
                 <Plus size={15} className="mr-2 text-blue-500" />
@@ -632,17 +677,17 @@ const DesktopRichToolbar = ({ editor, darkMode, rightSlot }) => {
             ) : (
               <>
                 <DropdownMenuItem
-                  onClick={() => editor.chain().focus().addRowBefore().run()}
+                  onClick={() => runWithSavedSelection((chain) => chain.addRowBefore())}
                 >
                   <span>Add Row Above</span>
                 </DropdownMenuItem>
                 <DropdownMenuItem
-                  onClick={() => editor.chain().focus().addRowAfter().run()}
+                  onClick={() => runWithSavedSelection((chain) => chain.addRowAfter())}
                 >
                   <span>Add Row Below</span>
                 </DropdownMenuItem>
                 <DropdownMenuItem
-                  onClick={() => editor.chain().focus().deleteRow().run()}
+                  onClick={() => runWithSavedSelection((chain) => chain.deleteRow())}
                   className="text-red-500"
                 >
                   <Trash2 size={14} className="mr-2" />
@@ -650,17 +695,17 @@ const DesktopRichToolbar = ({ editor, darkMode, rightSlot }) => {
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
-                  onClick={() => editor.chain().focus().addColumnBefore().run()}
+                  onClick={() => runWithSavedSelection((chain) => chain.addColumnBefore())}
                 >
                   <span>Add Column Left</span>
                 </DropdownMenuItem>
                 <DropdownMenuItem
-                  onClick={() => editor.chain().focus().addColumnAfter().run()}
+                  onClick={() => runWithSavedSelection((chain) => chain.addColumnAfter())}
                 >
                   <span>Add Column Right</span>
                 </DropdownMenuItem>
                 <DropdownMenuItem
-                  onClick={() => editor.chain().focus().deleteColumn().run()}
+                  onClick={() => runWithSavedSelection((chain) => chain.deleteColumn())}
                   className="text-red-500"
                 >
                   <Trash2 size={14} className="mr-2" />
@@ -668,7 +713,7 @@ const DesktopRichToolbar = ({ editor, darkMode, rightSlot }) => {
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
-                  onClick={() => editor.chain().focus().deleteTable().run()}
+                  onClick={() => runWithSavedSelection((chain) => chain.deleteTable())}
                   className="text-red-600 font-semibold"
                 >
                   <Trash2 size={14} className="mr-2" />
@@ -680,13 +725,21 @@ const DesktopRichToolbar = ({ editor, darkMode, rightSlot }) => {
         </DropdownMenu>
 
         {/* Media / Image Popover */}
-        <Popover open={imageOpen} onOpenChange={setImageOpen}>
+        <Popover
+          open={imageOpen}
+          onOpenChange={(open) => {
+            if (open) saveCurrentSelection();
+            setImageOpen(open);
+          }}
+        >
           <Tooltip>
             <TooltipTrigger asChild>
               <PopoverTrigger asChild>
                 <button
                   type="button"
                   aria-label="Insert image"
+                  onPointerDown={saveCurrentSelection}
+                  onClick={saveCurrentSelection}
                   className={`w-9 h-9 flex items-center justify-center rounded-2xl transition-all duration-150 active:scale-95 ${
                     imageOpen
                       ? 'bg-blue-600 text-white'
@@ -706,6 +759,10 @@ const DesktopRichToolbar = ({ editor, darkMode, rightSlot }) => {
           <PopoverContent
             align="start"
             className={`w-72 p-3 ${menuContentClass} border`}
+            onCloseAutoFocus={(e) => {
+              e.preventDefault();
+              editor?.commands.focus();
+            }}
           >
             <p
               className={`text-xs font-medium mb-2 ${
